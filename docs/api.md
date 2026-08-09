@@ -1,0 +1,65 @@
+# OMS API Read Interface
+
+All endpoints are completely read-only. Standard responses and paginations strictly apply.
+
+## Pagination Standard
+All collection endpoints return the following standard:
+```json
+{
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "page_size": 20,
+  "pages": 0
+}
+```
+
+## Error Standard
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human readable message"
+  }
+}
+```
+
+## GET `/api/orders`
+**Purpose**: Retrieve OMS orders.
+**Filters**:
+- `search`: String matching order number or client name.
+- `status`: Exact match.
+- `business_model`: Exact match.
+- `product`: Matches product type string.
+- `sales_exec`: Exact match.
+
+## GET `/api/orders/{order_id}`
+**Purpose**: Retrieve a single order by ID.
+**Errors**: 404 `NOT_FOUND` if order does not exist.
+
+## GET `/api/orders/{order_id}/tasks`
+**Purpose**: Retrieve all workflow tasks specifically tied to an order. Returns a flat list, not paginated.
+
+## GET `/api/tasks`
+**Purpose**: Retrieve and search workflow tasks across all orders.
+**Filters**:
+- `search`: String matching notes, stage label, or assigned user.
+- `status`: Exact match (e.g. done, pending).
+- `department`: Exact match.
+- `stage`: Exact match on stage label or key.
+- `order_id`: Exact match.
+
+## GET `/api/customers`
+**Purpose**: Retrieve the derived customer directory.
+**Filters**:
+- `search`: Matches client name.
+- `customer_type`: Exact match.
+- `sales_exec`: Exact match.
+
+## GET `/api/overview`
+**Purpose**: Retrieve high-level executive dashboard metrics.
+**Returns**: `OverviewResponse` containing `metrics` (Active, Pending, Completed, Needs Revision, Total Value) and lists of `recent_orders` and `recent_tasks`. Total value will be explicitly `null`.
+
+## GET `/api/analytics/orders`
+**Purpose**: Retrieve distribution objects useful for charting.
+**Returns**: `AnalyticsData` containing lists of `{ label: string, value: number }` for various business dimensions.
