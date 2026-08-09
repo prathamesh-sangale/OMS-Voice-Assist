@@ -32,7 +32,8 @@ class OMSService:
         
     def get_order_tasks(self, order_id: str) -> List[OrderTaskSchema]:
         """Fetch workflow tasks for a specific order."""
-        return self._repository.get_tasks_for_order(order_id)
+        order = self._repository.get_order(order_id)
+        return self._repository.get_tasks_for_order(order.id)
 
     def list_tasks(self, query: TaskQuery) -> PaginatedResponse[OrderTaskSchema]:
         """Fetch all tasks matching the structured TaskQuery."""

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import orders, tasks, customers, overview, analytics
+from app.api.routes import orders, tasks, customers, overview, analytics, agent
 from app.oms.exceptions import OMSRecordNotFoundError, OMSDataSourceError, OMSDataValidationError
 
 app = FastAPI(
@@ -48,6 +48,7 @@ app.include_router(tasks.router)
 app.include_router(customers.router)
 app.include_router(overview.router)
 app.include_router(analytics.router)
+app.include_router(agent.router)
 
 @app.get("/health", tags=["System"])
 async def health_check():

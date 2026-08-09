@@ -77,7 +77,7 @@ class JSONOMSRepository(BaseOMSRepository):
 
     def get_order(self, order_id: str) -> Optional[OrderSchema]:
         for order in self._orders:
-            if order.id == order_id:
+            if order.id == order_id or order.order_number == order_id:
                 return order
         raise OMSRecordNotFoundError(f"Order not found with ID: {order_id}")
 
