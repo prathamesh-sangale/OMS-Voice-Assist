@@ -72,6 +72,15 @@ class OrderSchema(BaseModel):
     finance_email: Optional[str] = None
     installation_number: Optional[str] = None
 
+    # Meta / System
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    submitted_by: Optional[str] = None
+    quotation_no: Optional[str] = None
+    po_number: Optional[str] = None
+    is_test: Optional[bool] = None
+
+
     model_config = ConfigDict(extra="ignore")
 
 class OrderTaskSchema(BaseModel):

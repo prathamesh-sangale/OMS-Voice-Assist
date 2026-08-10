@@ -13,7 +13,7 @@ def mock_oms():
 def test_executor_successful_mapping(mock_oms):
     mock_oms.get_overview_metrics.return_value = "metrics_data"
     
-    executor = AgentExecutor(mock_oms)
+    executor = AgentExecutor(mock_oms, Mock(), Mock())
     res = executor.execute(IntentResult(
         intent=AgentIntent.GET_OVERVIEW,
         confidence=1.0
@@ -23,7 +23,7 @@ def test_executor_successful_mapping(mock_oms):
     mock_oms.get_overview_metrics.assert_called_once()
 
 def test_executor_denies_unregistered_intent(mock_oms):
-    executor = AgentExecutor(mock_oms)
+    executor = AgentExecutor(mock_oms, Mock(), Mock())
     with pytest.raises(UnsupportedIntentError):
         executor.execute(IntentResult(
             intent=AgentIntent.UNSUPPORTED,
@@ -32,7 +32,7 @@ def test_executor_denies_unregistered_intent(mock_oms):
 
 def test_executor_raises_not_found(mock_oms):
     mock_oms.retrieve_order_details.side_effect = OMSRecordNotFoundError("Not found")
-    executor = AgentExecutor(mock_oms)
+    executor = AgentExecutor(mock_oms, Mock(), Mock())
     
     with pytest.raises(OMSRecordNotFoundError):
         executor.execute(IntentResult(

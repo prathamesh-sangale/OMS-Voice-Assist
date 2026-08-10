@@ -11,5 +11,16 @@ class UnsupportedIntentError(AgentException):
     pass
 
 class ExecutionError(AgentException):
-    """Raised when the capability registry fails to execute the command against the OMS."""
+    """Raised when an operation fails during execution."""
     pass
+
+class AuthorizationError(AgentException):
+    """Raised when the actor is not authorized to perform the action."""
+    pass
+
+class ConfirmationRequiredError(AgentException):
+    """Raised when an action requires explicit confirmation before executing."""
+    def __init__(self, pending_action_id: str, action_details: dict):
+        self.pending_action_id = pending_action_id
+        self.action_details = action_details
+        super().__init__("Confirmation required.")

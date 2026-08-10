@@ -1,4 +1,5 @@
-from app.agent.analyzer import RuleEngineAnalyzer
+from app.agent.analyzer import HybridAnalyzer
+from app.agent.llm.mock_provider import FakeLLMProvider
 from app.agent.resolution.entity_resolver import ResolutionResult
 from unittest.mock import Mock
 from app.agent.models.command import CommandInput
@@ -7,7 +8,7 @@ from app.agent.models.intent import AgentIntent
 def get_analyzer():
     mock_resolver = Mock()
     mock_resolver.resolve_sales_exec.return_value = ResolutionResult(resolved_value="Rohit Menon")
-    return RuleEngineAnalyzer(mock_resolver)
+    return HybridAnalyzer(mock_resolver, FakeLLMProvider())
 
 def test_analyzer_show_pending_orders():
     analyzer = get_analyzer()

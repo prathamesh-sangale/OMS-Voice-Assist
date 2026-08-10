@@ -6,7 +6,7 @@ from .models.command import CommandInput, AgentResponse
 from .models.intent import AgentIntent
 from .execution.executor import AgentExecutor
 from .responses.formatter import ResponseFormatter
-from .exceptions import UnsupportedIntentError, ExecutionError
+from .exceptions import UnsupportedIntentError, ExecutionError, ConfirmationRequiredError, AuthorizationError
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,24 @@ class AgentRouter:
         except UnsupportedIntentError as e:
             return AgentResponse(
                 status="unsupported",
+                message=str(e),
+                intent=intent_result.intent,
+                metadata=metadata
+            )
+            
+        except ConfirmationRequiredError as e:
+            return AgentResponse(
+                status="confirmation_required",
+                message=str(e),
+                intent=intent_result.intent,
+                data=e.action_details,
+                metadata=metadata,
+                requires_clarification=True
+            )
+            
+        except AuthorizationError as e:
+            return AgentResponse(
+                status="error",
                 message=str(e),
                 intent=intent_result.intent,
                 metadata=metadata

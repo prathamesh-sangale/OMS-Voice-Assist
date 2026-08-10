@@ -13,6 +13,7 @@ class IntentResult(BaseModel):
     entities: Dict[str, Any] = Field(default_factory=dict, description="Extracted entities")
     query: Optional[Any] = Field(default=None, description="The strictly typed query contract to be passed to OMS")
     explanation: Optional[str] = Field(default=None, description="Explanation of how the intent was resolved")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadata such as resolution method")
 
 class AgentResponse(BaseModel):
     status: str = Field(description="success, needs_clarification, unsupported, error")

@@ -1,75 +1,69 @@
-# Crystal OMS Executive Agent
+# CEO Executive OMS Voice Agent
 
-Crystal OMS Executive Agent is an experimental, modern Order Management System dashboard designed specifically for executive leadership (the CEO). The project is built to eventually support a fully functional, LLM-driven Voice Assistant capable of querying, analyzing, and commanding the OMS through natural language.
+A robust, voice-enabled Executive Order Management System (OMS) Agent. This system allows a CEO to query data and make authenticated writes through both text and voice commands.
 
-> **Status:** Phase 2.4 completed. The read-only OMS data layer and Executive Dashboard UI are fully integrated and hardened. The system is now preparing for Phase 3 (Voice Agent Architecture).
-
----
-
-## 🏗️ Architecture
-
-The project follows a strictly typed, decoupled modular monolith pattern. 
-
-- **Frontend**: React, TypeScript, Vite, Tailwind CSS v4, React Router.
-- **Backend**: FastAPI, Pydantic, Python 3.12.
-- **Data Source**: A local static JSON file (`crystal-oms-demo.json`) powers the application using an isolated `JSONOMSRepository` pattern, meaning it can easily be swapped out for a real database (PostgreSQL/Redis) or downstream APIs later.
-
-### Data Flow (Read-Only)
-The application currently operates under a strict read-only boundary to ensure stability before introducing the Agent. 
+## Architecture
 
 ```text
-React UI -> FastAPI (HTTP) -> OMSService -> JSONOMSRepository -> crystal-oms-demo.json
+                 PRIVATE CEO APP
+                       │
+                       ▼
+                 Voice / Text
+                       │
+                       ▼
+                  Agent Router
+                       │
+              ┌────────┴────────┐
+              ▼                 ▼
+         Rule Engine           LLM
+              │                 │
+              └────────┬────────┘
+                       ▼
+                  Validation
+                       │
+                ┌──────┴──────┐
+                ▼             ▼
+               READ          WRITE
+                              │
+                         Confirmation
+                              │
+                              ▼
+                         OMSService
+                              │
+                              ▼
+                           OMS Data
 ```
 
----
+## Security & Production Readiness (Phase 7)
+- **Deployment boundary**: Private CEO deployment only.
+- **Confirmation Protection**: One-time use confirmation IDs mapped in-memory with strict TTL and replay protection.
+- **Data Integrity**: Atomic JSON writes with automatic backup generation before mutation.
+- **Middleware**: Secure Headers (CSP, Frame protection) and Correlation IDs (`X-Request-ID`).
+- **Rate Limiting**: `slowapi` restricts high-cost endpoints like transcription and TTS.
 
-## 🚀 Features Currently Implemented
+## Local Development Setup
 
-* **Executive Dashboard**: Real-time business metrics aggregated safely from the OMS dataset.
-* **Derived Customer View**: Since the original OMS demo file is highly transactional, the system dynamically derives and aggregates a deduplicated Customer Directory with lifetime value and active order calculations.
-* **Order Tracking**: Paginated list and detailed view of commercial orders, tracking nesting container structures, product configurations, and locations.
-* **Workflow Tasks**: Tracking departmental assignments, turnaround times (TAT), and task status.
-* **Analytics**: High-level dimensional distributions of Business Models, Order Statuses, Product Types, and Sales Executives.
-* **Agent-Ready Contracts**: The `OMSService` requires strictly typed python objects (`OrderQuery`, `TaskQuery`, etc.) bypassing HTTP entirely. This guarantees the future LLM Agent will interact with the system securely and predictably.
+1. Copy `.env.example` to `.env` in `backend/` and add your `GROQ_API_KEY`.
+2. Start the Backend:
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   uvicorn app.main:app --reload
+   ```
+3. Start the Frontend:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
----
+## Production Docker Deployment
 
-## 📚 Documentation
-Detailed architectural and behavioral contracts can be found in the `/docs` directory:
-- [API Contract (`docs/api.md`)](./docs/api.md)
-- [OMS Capabilities (`docs/oms-capabilities.md`)](./docs/oms-capabilities.md)
-- [Agent-OMS Interface (`docs/agent-oms-interface.md`)](./docs/agent-oms-interface.md)
-- [Analytics Derivation Rules (`docs/oms/analytics-rules.md`)](./docs/oms/analytics-rules.md)
-- [Security & Write Boundaries (`docs/security-boundary.md`)](./docs/security-boundary.md)
+To deploy in a production environment:
 
----
-
-## 🛠️ How to Run Locally
-
-### 1. Start the Backend (FastAPI)
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+# Ensure .env is populated with GROQ_API_KEY
+docker-compose up -d --build
 ```
-The backend runs on `http://127.0.0.1:8000`.
 
-### 2. Start the Frontend (Vite)
-Open a new terminal window:
-```bash
-cd frontend
-npm install
-npm run dev
-```
-The frontend runs on `http://localhost:5173`.
-
----
-
-## 🛣️ Roadmap
-
-- [x] **Phase 1**: Frontend Foundation & Design System (Tailwind v4, Layout, Routing).
-- [x] **Phase 2**: Backend Architecture & Data Integration (FastAPI, Repository Pattern, Derivations, Contracts).
-- [ ] **Phase 3**: Voice Agent Architecture (STT, LLM Intent Classification, Tool Calling).
-- [ ] **Phase 4**: Agent Polish & Write Capabilities (Command execution via Voice).
+The frontend will be available on port 80, and the backend on port 8000.

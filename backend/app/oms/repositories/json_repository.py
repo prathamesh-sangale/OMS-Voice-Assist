@@ -7,6 +7,8 @@ from .base import BaseOMSRepository
 from ..schemas.oms import OrderSchema, OrderTaskSchema
 from ..exceptions import OMSDataSourceError, OMSRecordNotFoundError, OMSDataValidationError
 
+import threading
+
 class JSONOMSRepository(BaseOMSRepository):
     """
     Concrete implementation of the OMS Repository using the local JSON demo file.
@@ -16,6 +18,8 @@ class JSONOMSRepository(BaseOMSRepository):
         self.file_path = file_path
         self._orders: List[OrderSchema] = []
         self._tasks: List[OrderTaskSchema] = []
+        self._metadata: dict = {}
+        self._lock = threading.RLock()
         self._load_data()
         
     def _load_data(self) -> None:
@@ -25,6 +29,9 @@ class JSONOMSRepository(BaseOMSRepository):
         try:
             with open(self.file_path, "r", encoding="utf-8") as f:
                 raw_data = json.load(f)
+                
+            # Preserve root-level metadata (exclude standard data arrays)
+            self._metadata = {k: v for k, v in raw_data.items() if k not in ["oms_orders", "oms_order_tasks"]}
         except json.JSONDecodeError as e:
             raise OMSDataSourceError(f"Failed to parse JSON file: {str(e)}")
             
@@ -39,6 +46,37 @@ class JSONOMSRepository(BaseOMSRepository):
                 
         except ValidationError as e:
             raise OMSDataValidationError(f"Schema validation failed during data load: {str(e)}")
+
+    def _backup_data(self) -> None:
+        """Create a backup of the current JSON file before mutation."""
+        import shutil
+        if os.path.exists(self.file_path):
+            backup_path = self.file_path + ".bak"
+            try:
+                shutil.copy2(self.file_path, backup_path)
+            except Exception as e:
+                # Log but do not fail the write if backup fails
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to create backup: {e}")
+
+    def _save_data(self) -> None:
+        """Safely write data back to the JSON file."""
+        with self._lock:
+            data = {**self._metadata}
+            data["oms_orders"] = [order.model_dump(mode="json") for order in self._orders]
+            data["oms_order_tasks"] = [task.model_dump(mode="json") for task in self._tasks]
+            
+            # Write to a temporary file first, then replace for atomic-like behavior
+            temp_path = self.file_path + ".tmp"
+            try:
+                self._backup_data()
+                with open(temp_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+                os.replace(temp_path, self.file_path)
+            except Exception as e:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                raise OMSDataSourceError(f"Failed to write data safely: {str(e)}")
 
     def list_orders(
         self,
@@ -111,3 +149,25 @@ class JSONOMSRepository(BaseOMSRepository):
             result = [t for t in result if t.order_id == order_id]
             
         return result
+
+    def update_order_status(self, order_id: str, new_status: str) -> OrderSchema:
+        with self._lock:
+            for i, order in enumerate(self._orders):
+                if order.id == order_id or order.order_number == order_id:
+                    # Create a copy with the updated status
+                    updated = order.model_copy(update={"status": new_status})
+                    self._orders[i] = updated
+                    # Save state outside the iteration but inside the lock
+                    self._save_data()
+                    return updated
+            raise OMSRecordNotFoundError(f"Order not found with ID: {order_id}")
+
+    def update_order_commitment_date(self, order_id: str, new_date: str) -> OrderSchema:
+        with self._lock:
+            for i, order in enumerate(self._orders):
+                if order.id == order_id or order.order_number == order_id:
+                    updated = order.model_copy(update={"commitment_date": new_date})
+                    self._orders[i] = updated
+                    self._save_data()
+                    return updated
+            raise OMSRecordNotFoundError(f"Order not found with ID: {order_id}")

@@ -60,19 +60,19 @@ const OrdersPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-text">Orders Management</h1>
           <p className="text-sm text-muted-text">View and manage OMS orders.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           <input 
             type="text" 
             placeholder="Search orders (Enter)..." 
             value={searchInput}
             onChange={handleSearch}
             onKeyDown={handleSearchSubmit}
-            className="px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            className="w-full sm:w-64 px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
       </div>
@@ -86,36 +86,38 @@ const OrdersPage = () => {
       ) : orders.length === 0 ? (
         <div className="p-12 text-center text-muted-text">No orders match your filters.</div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableCell isHeader>Order</TableCell>
-              <TableCell isHeader>Customer</TableCell>
-              <TableCell isHeader>Product Type</TableCell>
-              <TableCell isHeader>Qty</TableCell>
-              <TableCell isHeader>Business Model</TableCell>
-              <TableCell isHeader>Status</TableCell>
-              <TableCell isHeader>Commitment</TableCell>
-              <TableCell isHeader>Sales Exec</TableCell>
-            </TableRow>
-          </TableHeader>
-          <tbody>
-            {orders.map((order) => (
-              <TableRow key={order.id} onClick={() => handleRowClick(order)}>
-                <TableCell className="font-medium">{order.order_number || '-'}</TableCell>
-                <TableCell>{order.client_name || '-'}</TableCell>
-                <TableCell>{order.product_type || order.product_types?.join(', ') || '-'}</TableCell>
-                <TableCell>{order.quantity || '-'}</TableCell>
-                <TableCell>{order.business_model || '-'}</TableCell>
-                <TableCell>
-                  <Badge status={getStatusColor(order.status)}>{order.status || '-'}</Badge>
-                </TableCell>
-                <TableCell>{order.commitment_date || '-'}</TableCell>
-                <TableCell>{order.sales_exec || '-'}</TableCell>
+        <div className="overflow-x-auto bg-surface rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableCell isHeader>Order</TableCell>
+                <TableCell isHeader>Customer</TableCell>
+                <TableCell isHeader>Product Type</TableCell>
+                <TableCell isHeader>Qty</TableCell>
+                <TableCell isHeader>Business Model</TableCell>
+                <TableCell isHeader>Status</TableCell>
+                <TableCell isHeader>Commitment</TableCell>
+                <TableCell isHeader>Sales Exec</TableCell>
               </TableRow>
-            ))}
-          </tbody>
-        </Table>
+            </TableHeader>
+            <tbody>
+              {orders.map((order) => (
+                <TableRow key={order.id} onClick={() => handleRowClick(order)}>
+                  <TableCell className="font-medium whitespace-nowrap">{order.order_number || '-'}</TableCell>
+                  <TableCell className="whitespace-nowrap">{order.client_name || '-'}</TableCell>
+                  <TableCell>{order.product_type || order.product_types?.join(', ') || '-'}</TableCell>
+                  <TableCell>{order.quantity || '-'}</TableCell>
+                  <TableCell>{order.business_model || '-'}</TableCell>
+                  <TableCell>
+                    <Badge status={getStatusColor(order.status)}>{order.status || '-'}</Badge>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">{order.commitment_date || '-'}</TableCell>
+                  <TableCell className="whitespace-nowrap">{order.sales_exec || '-'}</TableCell>
+                </TableRow>
+              ))}
+            </tbody>
+          </Table>
+        </div>
       )}
 
       <Drawer 

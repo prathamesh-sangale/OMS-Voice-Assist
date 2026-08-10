@@ -96,28 +96,30 @@ const ExecutiveOverview = () => {
               No recent orders found
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableCell isHeader>Order</TableCell>
-                  <TableCell isHeader>Client</TableCell>
-                  <TableCell isHeader>Status</TableCell>
-                </TableRow>
-              </TableHeader>
-              <tbody>
-                {recent_orders.map(o => (
-                  <TableRow key={o.id} onClick={() => navigate(`/orders/${o.id}`)}>
-                    <TableCell className="font-medium text-text cursor-pointer hover:underline">{o.order_number || o.id}</TableCell>
-                    <TableCell>{o.client_name || '-'}</TableCell>
-                    <TableCell>
-                      <Badge status={(o.status || '').toLowerCase() === 'completed' ? 'success' : 'neutral'}>
-                        {o.status || '-'}
-                      </Badge>
-                    </TableCell>
+            <div className="overflow-x-auto rounded-lg border border-border mt-2">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableCell isHeader>Order</TableCell>
+                    <TableCell isHeader>Client</TableCell>
+                    <TableCell isHeader>Status</TableCell>
                   </TableRow>
-                ))}
-              </tbody>
-            </Table>
+                </TableHeader>
+                <tbody>
+                  {recent_orders.map(o => (
+                    <TableRow key={o.id} onClick={() => navigate(`/orders/${o.id}`)}>
+                      <TableCell className="font-medium text-text cursor-pointer hover:underline whitespace-nowrap">{o.order_number || o.id}</TableCell>
+                      <TableCell className="whitespace-nowrap">{o.client_name || '-'}</TableCell>
+                      <TableCell>
+                        <Badge status={(o.status || '').toLowerCase() === 'completed' ? 'success' : 'neutral'}>
+                          {o.status || '-'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
           )}
         </Card>
         

@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from app.core.rate_limit import limiter
 from app.api.dependencies import get_oms_service
 from app.oms.services.oms_service import OMSService
 from app.agent.models.command import CommandInput, AgentResponse
-from app.agent.analyzer import RuleEngineAnalyzer
+from app.agent.analyzer import HybridAnalyzer
 from app.agent.resolution.entity_resolver import EntityResolver
+from app.agent.llm.mock_provider import FakeLLMProvider
 from app.agent.execution.executor import AgentExecutor
 from app.agent.router import AgentRouter
+from app.oms.services.write_service import WriteService
+from app.agent.execution.confirmation import ConfirmationService
 
 router = APIRouter(prefix="/api/agent", tags=["Agent"])
 
@@ -13,12 +17,18 @@ router = APIRouter(prefix="/api/agent", tags=["Agent"])
 # Doing it inline here for Phase 3.1
 def get_agent_router(service: OMSService = Depends(get_oms_service)) -> AgentRouter:
     resolver = EntityResolver(service)
-    analyzer = RuleEngineAnalyzer(resolver)
-    executor = AgentExecutor(service)
+    llm_provider = FakeLLMProvider() # We use the fake provider for Phase 4 determinism
+    analyzer = HybridAnalyzer(resolver, llm_provider)
+    
+    write_service = WriteService(service)
+    confirmation_service = ConfirmationService()
+    executor = AgentExecutor(service, write_service, confirmation_service)
     return AgentRouter(analyzer, executor)
 
 @router.post("/command", response_model=AgentResponse)
+@limiter.limit("20/minute")
 def execute_command(
+    request: Request,
     command: CommandInput,
     agent_router: AgentRouter = Depends(get_agent_router)
 ):
