@@ -18,6 +18,7 @@ def mock_oms():
         commitment_date="2026-08-11"
     )
     oms.get_order.return_value = mock_order
+    oms.retrieve_order_details.return_value = mock_order
     return oms
 
 @pytest.fixture
@@ -55,7 +56,7 @@ def test_write_requires_confirmation(executor):
         executor.execute(result)
     
     assert "Pending Action" not in str(exc_info.value) # the message is "Confirmation required."
-    assert exc_info.value.action_details["target"] == "OR603"
+    assert exc_info.value.action_details["target"] == ["OR603"]
     assert exc_info.value.action_details["new_value"] == "Shipped"
 
 def test_confirmation_execution(executor, confirmation_service):

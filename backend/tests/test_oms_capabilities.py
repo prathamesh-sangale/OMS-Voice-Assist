@@ -17,7 +17,7 @@ def test_capability_list_orders(real_service):
     assert isinstance(res, PaginatedResponse)
     assert len(res.items) <= 2
     if len(res.items) > 0:
-        assert res.items[0].status == "completed"
+        assert res.items[0].status == "Completed"
 
 def test_capability_retrieve_order(real_service):
     # Capability: Retrieve order
