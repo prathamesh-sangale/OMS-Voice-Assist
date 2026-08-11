@@ -4,6 +4,37 @@ from .base import CommandRule
 from ..models.command import IntentResult
 from ..models.intent import AgentIntent
 from ...oms.contracts.queries import OrderQuery
+from ..normalization.order_id import normalize_order_id
+
+class PositionalReferenceRule(CommandRule):
+    name = "PositionalReferenceRule"
+    intent = AgentIntent.GET_ORDER
+    priority = 110 # Very high priority to catch specific positional context
+    
+    def match(self, text: str) -> Optional[IntentResult]:
+        words_to_index = {
+            "first": 0,
+            "second": 1,
+            "third": 2,
+            "fourth": 3,
+            "fifth": 4,
+            "last": -1
+        }
+        
+        text_lower = text.lower()
+        for word, idx in words_to_index.items():
+            if re.search(rf"\b{word}\b", text_lower):
+                # Only trigger if they want to view/act on it
+                if any(v in text_lower for v in ["show", "open", "get", "tell", "change", "update", "set", "move", "the"]):
+                    return IntentResult(
+                        intent=self.intent, # We default to GET_ORDER, but target_resolver will use it
+                        confidence=0.9,
+                        entities={
+                            "position_index": idx
+                        },
+                        explanation=f"Rule Engine extracted positional reference: {word}"
+                    )
+        return None
 
 class GetOrderRule(CommandRule):
     name = "GetOrderRule"
@@ -11,10 +42,10 @@ class GetOrderRule(CommandRule):
     priority = 100 # Highest priority for specific IDs
     
     def match(self, text: str) -> Optional[IntentResult]:
-        # OR followed by digits
-        match = re.search(r"\b(or\d+)\b", text, re.IGNORECASE)
+        # Match OR123, or 123, order 123, order number 123, etc.
+        match = re.search(r"\b(?:or|order(?:(?:\s+number|\s+no\.?)?))?\s*[\-]?\s*(\d+)\b", text, re.IGNORECASE)
         if match and any(verb in text for verb in ["show", "open", "get", "tell"]):
-            order_id = match.group(1).upper()
+            order_id = normalize_order_id(match.group(1))
             return IntentResult(
                 intent=self.intent,
                 confidence=0.99,
@@ -92,7 +123,7 @@ class UpdateOrderStatusRule(CommandRule):
         if "update" not in text and "set" not in text and "change" not in text:
             return None
             
-        id_match = re.search(r"\b(or\d+)\b", text)
+        id_match = re.search(r"\b(?:or|order(?:(?:\s+number|\s+no\.?)?))?\s*[\-]?\s*(\d+)\b", text, re.IGNORECASE)
         if not id_match:
             return None
             
@@ -104,7 +135,7 @@ class UpdateOrderStatusRule(CommandRule):
                     intent=self.intent,
                     confidence=1.0,
                     entities={
-                        "order_id": id_match.group(1).upper(),
+                        "order_id": normalize_order_id(id_match.group(1)),
                         "new_status": status_match.group(1)
                     },
                     explanation="Rule Engine extracted an order status update request."
@@ -120,7 +151,7 @@ class UpdateOrderCommitmentDateRule(CommandRule):
         if "update" not in text and "set" not in text and "change" not in text and "move" not in text:
             return None
             
-        id_match = re.search(r"\b(or\d+)\b", text)
+        id_match = re.search(r"\b(?:or|order(?:(?:\s+number|\s+no\.?)?))?\s*[\-]?\s*(\d+)\b", text, re.IGNORECASE)
         if not id_match:
             return None
             
@@ -132,9 +163,43 @@ class UpdateOrderCommitmentDateRule(CommandRule):
                     intent=self.intent,
                     confidence=1.0,
                     entities={
-                        "order_id": id_match.group(1).upper(),
+                        "order_id": normalize_order_id(id_match.group(1)),
                         "new_commitment_date_candidate": date_match.group(1).strip()
                     },
                     explanation="Rule Engine extracted a commitment date update request."
                 )
+        return None
+
+class UpdateOrderDestinationRule(CommandRule):
+    name = "UpdateOrderDestinationRule"
+    intent = AgentIntent.UPDATE_ORDER_DESTINATION
+    priority = 110
+    
+    def match(self, text: str) -> Optional[IntentResult]:
+        if "update" not in text and "set" not in text and "change" not in text:
+            return None
+            
+        if "destination" in text or "delivery city" in text:
+            id_match = re.search(r"\b(?:or|order(?:(?:\s+number|\s+no\.?)?))?\s*[\-]?\s*(\d+)\b", text, re.IGNORECASE)
+            order_id = id_match.group(1).upper() if id_match else None
+            
+            # E.g. "change destination to Mumbai"
+            dest_match = re.search(r"to\s+([a-zA-Z\s]+)", text)
+            
+            entities = {}
+            if order_id:
+                entities["order_id"] = normalize_order_id(order_id)
+            if dest_match:
+                # "Mumbai" might be matched along with other words, but simple is okay for demo
+                val = dest_match.group(1).strip()
+                # Stop words hack for simple rule
+                val = val.replace(" for", "").replace(" please", "")
+                entities["new_destination"] = val
+                
+            return IntentResult(
+                intent=self.intent,
+                confidence=0.8,
+                entities=entities,
+                explanation="Rule Engine extracted a destination update request."
+            )
         return None

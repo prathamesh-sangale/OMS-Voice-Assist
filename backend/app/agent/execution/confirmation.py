@@ -10,7 +10,7 @@ class PendingAction(BaseModel):
     description: str
     old_value: Optional[str] = None
     new_value: Optional[str] = None
-    target: str
+    target: Any
     expires_at: datetime
 
 class ConfirmationService:
@@ -26,7 +26,7 @@ class ConfirmationService:
         intent: str, 
         command_payload: Dict[str, Any], 
         description: str,
-        target: str,
+        target: Any,
         old_value: Optional[str] = None,
         new_value: Optional[str] = None
     ) -> PendingAction:

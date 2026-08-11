@@ -5,6 +5,7 @@ from .intent import AgentIntent
 class CommandInput(BaseModel):
     text: str = Field(description="The natural language command from the user")
     source: str = Field(default="text", description="Source of the command (e.g. text, voice)")
+    session_id: Optional[str] = Field(default=None, description="Optional conversation session ID")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional context if needed")
 
 class IntentResult(BaseModel):
@@ -22,3 +23,6 @@ class AgentResponse(BaseModel):
     data: Optional[Any] = Field(default=None, description="Payload returned by OMS")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Audit log context")
     requires_clarification: bool = Field(default=False)
+    session_id: Optional[str] = Field(default=None, description="Current conversation session ID")
+    response_type: Optional[str] = Field(default=None, description="order_list, order_details, analytics, confirmation, etc.")
+    navigation: Optional[Dict[str, Any]] = Field(default=None, description="Navigation hint containing target path")

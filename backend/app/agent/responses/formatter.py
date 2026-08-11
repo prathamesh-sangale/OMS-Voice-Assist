@@ -27,6 +27,19 @@ class ResponseFormatter:
         if intent == AgentIntent.GET_ANALYTICS:
             return "Here is the analytical distribution."
             
+        if intent == AgentIntent.CONFIRM_ACTION and isinstance(data, dict):
+            # Format WriteService results
+            success_count = len(data.get("success", []))
+            fail_count = len(data.get("failed", []))
+            if fail_count == 0 and success_count == 1:
+                return "Update applied successfully."
+            elif fail_count == 0 and success_count > 1:
+                return f"{success_count} orders updated successfully."
+            elif success_count > 0 and fail_count > 0:
+                return f"{success_count} orders updated successfully. {fail_count} could not be updated."
+            elif success_count == 0 and fail_count > 0:
+                return f"Update failed for {fail_count} orders."
+            
         return "Command executed successfully."
 
     @staticmethod

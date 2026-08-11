@@ -11,10 +11,14 @@ from app.agent.execution.executor import AgentExecutor
 from app.agent.router import AgentRouter
 from app.oms.services.write_service import WriteService
 from app.agent.execution.confirmation import ConfirmationService
+from app.agent.sessions.repository import SessionRepository
+from app.agent.sessions.session_service import SessionService
 
 router = APIRouter(prefix="/api/agent", tags=["Agent"])
 
 _confirmation_service = ConfirmationService()
+_session_repo = SessionRepository()
+_session_service = SessionService(_session_repo)
 
 # Typically these dependencies would be wired in the DI container
 # Doing it inline here for Phase 3.1
@@ -32,7 +36,26 @@ def get_agent_router(service: OMSService = Depends(get_oms_service)) -> AgentRou
     
     write_service = WriteService(service)
     executor = AgentExecutor(service, write_service, _confirmation_service)
-    return AgentRouter(analyzer, executor)
+    
+    from app.agent.resolution.target_resolver import TargetResolverService
+    target_resolver = TargetResolverService(resolver)
+    
+    return AgentRouter(analyzer, executor, _session_service, target_resolver)
+
+@router.get("/sessions")
+def list_sessions():
+    """List recent agent sessions."""
+    sessions = _session_repo.list_sessions(limit=50)
+    return {"sessions": [s.model_dump() for s in sessions]}
+
+@router.get("/sessions/{session_id}")
+def get_session(session_id: str):
+    """Get a specific agent session by ID."""
+    session = _session_repo.get_session(session_id)
+    if not session:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session.model_dump()
 
 @router.post("/command", response_model=AgentResponse)
 @limiter.limit("20/minute")
