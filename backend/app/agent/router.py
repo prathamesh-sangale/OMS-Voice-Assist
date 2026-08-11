@@ -34,7 +34,7 @@ class AgentRouter:
         if intent_result.intent == AgentIntent.UNSUPPORTED:
             return AgentResponse(
                 status="unsupported",
-                message="I can't perform that OMS operation yet. Write operations are disabled in this phase.",
+                message="I can't perform that OMS operation yet.",
                 intent=intent_result.intent,
                 metadata=metadata
             )
@@ -98,6 +98,17 @@ class AgentRouter:
             
         except ExecutionError as e:
             logger.error(f"Execution failed: {e}")
+            error_msg = str(e)
+            if "Missing required entity" in error_msg:
+                # Return this as a clarification request so the user knows what went wrong
+                return AgentResponse(
+                    status="needs_clarification",
+                    message=f"I understood you want to update the order, but I need more details: {error_msg.split(': ')[-1]} is missing.",
+                    intent=intent_result.intent,
+                    metadata=metadata,
+                    requires_clarification=True
+                )
+                
             return AgentResponse(
                 status="error",
                 message=ResponseFormatter.format_error("Failed to execute command."),

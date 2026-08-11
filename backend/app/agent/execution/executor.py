@@ -50,10 +50,24 @@ class AgentExecutor:
     def _execute_read(self, result: IntentResult) -> Any:
         method = self._read_registry[result.intent]
         try:
+            if result.intent in [AgentIntent.GET_ORDER, AgentIntent.GET_ORDER_TASKS]:
+                order_id = result.entities.get("order_id")
+                if not order_id:
+                    raise ExecutionError("Missing required entity: order_id")
+                return method(order_id)
+
             if result.query is not None:
                 return method(result.query)
             else:
-                return method()
+                from ...oms.contracts.queries import OrderQuery, TaskQuery, CustomerQuery
+                if result.intent == AgentIntent.LIST_ORDERS:
+                    return method(OrderQuery())
+                elif result.intent == AgentIntent.LIST_TASKS:
+                    return method(TaskQuery())
+                elif result.intent == AgentIntent.LIST_CUSTOMERS:
+                    return method(CustomerQuery())
+                else:
+                    return method()
         except OMSRecordNotFoundError as e:
             raise e
         except Exception as e:
@@ -68,7 +82,7 @@ class AgentExecutor:
             raise AuthorizationError("You do not have permission to execute this operation.")
 
         try:
-            old_order = self._oms_service.get_order(order_id)
+            old_order = self._oms_service.retrieve_order_details(order_id)
         except OMSRecordNotFoundError as e:
             raise e
 

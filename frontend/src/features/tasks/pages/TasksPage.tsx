@@ -4,6 +4,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { tasksApi, type TaskFilters } from '../../../services/api/tasks';
 import type { OrderTask } from '../../../services/api/types';
 import { useNavigate } from 'react-router-dom';
+import { Search, X } from 'lucide-react';
 
 const TasksPage = () => {
   const navigate = useNavigate();
@@ -29,15 +30,12 @@ const TasksPage = () => {
     fetchTasks();
   }, [filters]);
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchInput(e.target.value);
-  };
-
-  const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
       setFilters(prev => ({ ...prev, search: searchInput }));
-    }
-  };
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
 
   const getStatusColor = (status?: string) => {
     if (!status) return 'neutral';
@@ -56,14 +54,25 @@ const TasksPage = () => {
           <p className="text-sm text-muted-text">Cross-departmental workflow tasks.</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <input 
-            type="text" 
-            placeholder="Search tasks (Enter)..." 
-            value={searchInput}
-            onChange={handleSearch}
-            onKeyDown={handleSearchSubmit}
-            className="w-full sm:w-64 px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-          />
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-text" />
+            <input 
+              type="text" 
+              placeholder="Search tasks..." 
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-background text-text"
+            />
+            {searchInput && (
+              <button 
+                type="button"
+                onClick={() => setSearchInput('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-text hover:text-text rounded-full hover:bg-surface-hover"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

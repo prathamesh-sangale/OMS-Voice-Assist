@@ -1,40 +1,38 @@
 # Security Boundary & Write Operations
 
-## Current Phase Structure (Read-Only)
-At present, the OMS system is entirely read-only.
-The architecture safely allows the FastAPI layer, and subsequently the future CEO Agent, to safely pull data from the OMS Service.
-Data mutation is strictly prohibited at the interface level, service level, and repository level.
+## Current Phase Structure
+The OMS system supports both robust reads and controlled writes via the CEO Agent.
+The architecture safely allows the FastAPI layer, and subsequently the CEO Agent, to interact with the OMS Service.
+Data mutation is strictly isolated and guarded by a confirmation workflow, preventing the LLM from making unilateral changes.
 
 ## Future Architecture (Read vs Write)
-When write capabilities are eventually needed, they must be fundamentally isolated from the read path.
+The CEO Agent mutates OMS state through a specialized Command Service, heavily guarded by Validation and a Confirmation Loop.
 
-### Read Path (Current)
+### Read Path
 ```text
 Agent -> OMSService -> JSONOMSRepository (Read Only)
 ```
 
-### Write Path (Future Requirement)
-The CEO Agent should only be allowed to mutate OMS state through a specialized Command Service, heavily guarded by Auth/Validation.
-
+### Write Path (Implemented)
 ```text
 CEO Voice
     ↓
-Agent Intent Parsing
+Agent Intent Parsing (Rule Engine + LLM fallback)
     ↓
 OMS Command Service
     ↓
-Authentication & Authorization (Who is speaking? Do they have clearance to bypass standard workflow?)
-    ↓
 Validation (Does this mutation break state machine rules?)
     ↓
-Explicit Confirmation (Agent says: "Are you sure you want to approve this order?")
+Explicit Confirmation Request (Agent halts and asks user to confirm via UI)
     ↓
-OMS Mutation
+User Submits Confirmation ID (!confirm <id>)
+    ↓
+OMS Mutation & Audit Logging
 ```
 
-## Authentication & Authorization
-Because this Voice Assistant is designed explicitly for the CEO:
-1. **Authentication** will be required to verify the user is actually the CEO.
-2. **Authorization** will be required because the CEO operates with omnipotent privileges. A standard user agent might only have access to their own tasks. The CEO agent bypasses departmental silos. 
-
-Do NOT implement fake authentication (like hardcoded tokens). These boundaries will be implemented formally when the system connects to production environments.
+## Security Controls Implemented (Phase 7)
+1. **Private Deployment**: The application operates under a strict private deployment model tailored exclusively for the CEO. 
+2. **Confirmation Protection**: Destructive/mutative actions require out-of-band confirmation. The Agent generates a pending action with a UUID, halting until the user explicitly approves it.
+3. **Data Integrity & Backups**: The JSONOMSRepository maintains root metadata and automatically creates `.bak` backups before executing atomic writes.
+4. **Rate Limiting**: High-cost operations (LLM Routing, STT transcription, TTS generation) are protected by IP-based rate limiting via SlowAPI.
+5. **Secure Headers**: Added Content-Security-Policy, HSTS, X-Frame-Options, and robust CORS policies to the FastAPI middleware.

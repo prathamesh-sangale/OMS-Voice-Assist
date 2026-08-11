@@ -38,5 +38,6 @@ def test_executor_raises_not_found(mock_oms):
         executor.execute(IntentResult(
             intent=AgentIntent.GET_ORDER,
             confidence=1.0,
+            entities={'order_id': 'OR999999'},
             query="OR999999"
         ))

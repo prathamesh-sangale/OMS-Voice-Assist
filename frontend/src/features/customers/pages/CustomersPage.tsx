@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Table, TableHeader, TableRow, TableCell } from '../../../components/ui/Table';
 import { Badge } from '../../../components/ui/Badge';
+import { Search, X } from 'lucide-react';
 import { customersApi, type CustomerFilters } from '../../../services/api/customers';
 import type { CustomerView } from '../../../services/api/types';
 
@@ -27,15 +28,12 @@ const CustomersPage = () => {
     fetchCustomers();
   }, [filters]);
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchInput(e.target.value);
-  };
-
-  const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
       setFilters(prev => ({ ...prev, search: searchInput }));
-    }
-  };
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
 
   return (
     <div className="space-y-6">
@@ -45,14 +43,25 @@ const CustomersPage = () => {
           <p className="text-sm text-muted-text">Derived client directory from active orders.</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <input 
-            type="text" 
-            placeholder="Search customers (Enter)..." 
-            value={searchInput}
-            onChange={handleSearch}
-            onKeyDown={handleSearchSubmit}
-            className="w-full sm:w-64 px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-          />
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-text" />
+            <input 
+              type="text" 
+              placeholder="Search customers..." 
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-background text-text"
+            />
+            {searchInput && (
+              <button 
+                type="button"
+                onClick={() => setSearchInput('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-text hover:text-text rounded-full hover:bg-surface-hover"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

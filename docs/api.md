@@ -63,3 +63,30 @@ All collection endpoints return the following standard:
 ## GET `/api/analytics/orders`
 **Purpose**: Retrieve distribution objects useful for charting.
 **Returns**: `AnalyticsData` containing lists of `{ label: string, value: number }` for various business dimensions.
+
+# Agent & Voice Interface
+
+## POST `/api/agent/command`
+**Purpose**: Submit a natural language command (text) to the OMS Agent.
+**Body**:
+```json
+{
+  "text": "Approve order OR601"
+}
+```
+**Returns**: `CommandResponse` indicating success, needs_clarification, or confirmation_required. If confirmation is required, it includes a `data` object with the UUID to confirm.
+
+## POST `/api/voice/transcribe`
+**Purpose**: Transcribe an uploaded audio file containing a spoken command.
+**Body**: `multipart/form-data` with a `file` field containing the audio (e.g., WebM, WAV, MP3).
+**Returns**: A JSON object containing the `transcript` text and inference metadata. Protected by rate limits.
+
+## POST `/api/voice/tts`
+**Purpose**: Generate a Text-to-Speech audio blob from text.
+**Body**:
+```json
+{
+  "text": "Order OR601 has been approved."
+}
+```
+**Returns**: Audio file stream (e.g., `audio/mpeg` or `audio/mp3`). Protected by rate limits.

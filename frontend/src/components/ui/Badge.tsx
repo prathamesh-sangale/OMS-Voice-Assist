@@ -2,14 +2,16 @@
 
 interface BadgeProps {
   children: React.ReactNode;
-  status?: 'success' | 'warning' | 'critical' | 'neutral';
+  status?: 'success' | 'warning' | 'critical' | 'neutral' | 'info' | 'draft';
 }
 
 export const Badge: React.FC<BadgeProps> = ({ children, status = 'neutral' }) => {
   const statusStyles = {
     success: 'bg-success/10 text-success border-success/20',
-    warning: 'bg-warning/10 text-warning border-warning/20',
+    warning: 'bg-[#FFF3CD] text-[#856404] border-[#FFEEBA]', // Custom yellow for warnings
     critical: 'bg-critical/10 text-critical border-critical/20',
+    info: 'bg-[#CCE5FF] text-[#004085] border-[#B8DAFF]', // Blue
+    draft: 'bg-[#E2E3E5] text-[#383D41] border-[#D6D8DB]', // Grey
     neutral: 'bg-surface text-muted-text border-border',
   };
 

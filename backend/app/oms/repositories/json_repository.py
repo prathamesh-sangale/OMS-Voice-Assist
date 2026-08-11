@@ -63,8 +63,8 @@ class JSONOMSRepository(BaseOMSRepository):
         """Safely write data back to the JSON file."""
         with self._lock:
             data = {**self._metadata}
-            data["oms_orders"] = [order.model_dump(mode="json") for order in self._orders]
-            data["oms_order_tasks"] = [task.model_dump(mode="json") for task in self._tasks]
+            data["oms_orders"] = [order.model_dump(mode="json", exclude_unset=True) for order in self._orders]
+            data["oms_order_tasks"] = [task.model_dump(mode="json", exclude_unset=True) for task in self._tasks]
             
             # Write to a temporary file first, then replace for atomic-like behavior
             temp_path = self.file_path + ".tmp"
@@ -84,7 +84,10 @@ class JSONOMSRepository(BaseOMSRepository):
         status: Optional[str] = None,
         business_model: Optional[str] = None,
         product: Optional[str] = None,
-        sales_exec: Optional[str] = None
+        sales_exec: Optional[str] = None,
+        quantity: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = "desc"
     ) -> List[OrderSchema]:
         result = self._orders
         
@@ -104,12 +107,39 @@ class JSONOMSRepository(BaseOMSRepository):
         if product:
             def matches_product(o: OrderSchema, p: str) -> bool:
                 p = p.lower()
+                if p in (o.product_type or "").lower():
+                    return True
                 if any(p in (pt or "").lower() for pt in (o.product_types or [])):
                     return True
                 if any(p in (pc.product or "").lower() for pc in (o.product_configs or [])):
                     return True
                 return False
             result = [o for o in result if matches_product(o, product)]
+
+        if quantity is not None:
+            result = [o for o in result if (o.quantity == quantity or o.quantity == str(quantity))]
+
+        if sort_by:
+            reverse = (sort_order or "desc").lower() == "desc"
+            
+            def get_sort_key(o: OrderSchema):
+                val = getattr(o, sort_by.lower(), None)
+                # If sorting by a numeric field that might be string like 'quantity'
+                if sort_by.lower() == 'quantity' and val is not None:
+                    try:
+                        return float(val)
+                    except ValueError:
+                        pass
+                if val is None:
+                    # Provide an empty string or 0 depending on expected type to avoid None comparison errors
+                    return "" if isinstance(val, str) else (0 if isinstance(val, (int, float)) else "")
+                return val
+
+            # Use error handling in sort just in case schema fields differ
+            try:
+                result.sort(key=get_sort_key, reverse=reverse)
+            except TypeError:
+                pass # Fallback to unsorted if types can't be cleanly compared
 
         return result
 
@@ -134,7 +164,14 @@ class JSONOMSRepository(BaseOMSRepository):
         
         if search:
             s = search.lower()
-            result = [t for t in result if s in (t.stage_label or "").lower() or s in (t.notes or "").lower() or s in (t.assigned_to or "").lower()]
+            result = [
+                t for t in result 
+                if s in (t.stage_label or "").lower() 
+                or s in (t.notes or "").lower() 
+                or s in (t.assigned_to or "").lower()
+                or s in (t.id or "").lower()
+                or s in (t.order_id or "").lower()
+            ]
             
         if status:
             result = [t for t in result if (t.status or "").lower() == status.lower()]

@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Mic, CheckCircle2, AlertCircle, Loader2, Send } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Mic, CheckCircle2, AlertCircle, Loader2, Send, Paperclip } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
+import { API_BASE_URL } from '../../services/api/client';
+import { OrderResultRenderer } from './components/OrderResultRenderer';
 
 type VoiceState = 'Ready' | 'Listening' | 'Transcribing' | 'Reviewing' | 'Analyzing' | 'Executing' | 'Completed' | 'Error' | 'Needs Clarification' | 'Confirmation Required';
 
@@ -20,10 +22,42 @@ const VoiceCommandCenter = () => {
   
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [_audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const recognitionRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setVoiceState('Transcribing');
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+
+    fetch(`${API_BASE_URL}/api/voice/transcribe`, {
+      method: 'POST',
+      body: formData,
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'success') {
+        setInputText(data.transcript);
+        setVoiceState('Reviewing');
+      } else {
+        setVoiceState('Error');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      setVoiceState('Error');
+    });
+    
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const playTTS = async (text: string) => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/voice/tts', {
+      const res = await fetch(`${API_BASE_URL}/api/voice/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
@@ -40,7 +74,66 @@ const VoiceCommandCenter = () => {
   };
 
   const startRecording = async () => {
+    // 1. Try Native Web Speech API (Live Transcription like Google Assistant)
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false; // Stop automatically when user stops speaking
+        recognition.interimResults = true; // Show live text
+        recognitionRef.current = recognition;
+
+        recognition.onstart = () => {
+          setVoiceState('Listening');
+          setInputText('');
+        };
+
+        recognition.onresult = (event: any) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
+          }
+          setInputText(transcript);
+        };
+
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          if (event.error === 'not-allowed') {
+            alert("Microphone access denied. Please allow it in browser settings. (Error: not-allowed)");
+          } else if (event.error !== 'no-speech') {
+            alert(`Speech recognition failed with error: ${event.error}. Please check your microphone or network connection.`);
+          }
+          setVoiceState('Error');
+        };
+
+        recognition.onend = () => {
+          setVoiceState(prev => {
+            if (prev === 'Listening') {
+              // Auto-submit the form by finding and clicking the submit button
+              setTimeout(() => {
+                const form = document.querySelector('form');
+                if (form) form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+              }, 500);
+              return 'Analyzing';
+            }
+            return prev;
+          });
+        };
+
+        recognition.start();
+        return;
+      } catch (err) {
+        console.warn("SpeechRecognition failed, falling back to MediaRecorder", err);
+      }
+    }
+
+    // 2. Fallback to MediaRecorder + Backend Groq Whisper API
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Your browser does not support audio recording or no microphone was found.");
+        setVoiceState('Error');
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       setMediaRecorder(recorder);
@@ -53,17 +146,13 @@ const VoiceCommandCenter = () => {
 
       recorder.onstop = async () => {
         setVoiceState('Transcribing');
-        
-        // Use a timeout to ensure all chunks are collected
         setTimeout(async () => {
           setAudioChunks((currentChunks) => {
             const audioBlob = new Blob(currentChunks, { type: 'audio/webm' });
-            
-            // Upload
             const formData = new FormData();
             formData.append('file', audioBlob, 'command.webm');
 
-            fetch('http://127.0.0.1:8000/api/voice/transcribe', {
+            fetch(`${API_BASE_URL}/api/voice/transcribe`, {
               method: 'POST',
               body: formData,
             })
@@ -81,9 +170,8 @@ const VoiceCommandCenter = () => {
               setVoiceState('Error');
             });
             
-            // Stop tracks
             stream.getTracks().forEach(track => track.stop());
-            return []; // reset chunks
+            return [];
           });
         }, 100);
       };
@@ -91,13 +179,23 @@ const VoiceCommandCenter = () => {
       setAudioChunks([]);
       recorder.start();
       setVoiceState('Listening');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Mic error:', err);
+      if (err.name === 'NotFoundError') {
+        alert("No microphone found. Please connect a microphone and try again.");
+      } else if (err.name === 'NotAllowedError') {
+        alert("Microphone access was denied. Please allow microphone access in your browser settings.");
+      } else {
+        alert(`Microphone error: ${err.message || 'Unknown error'}`);
+      }
       setVoiceState('Error');
     }
   };
 
   const stopRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
     if (mediaRecorder && mediaRecorder.state === 'recording') {
       mediaRecorder.stop();
     }
@@ -124,7 +222,7 @@ const VoiceCommandCenter = () => {
       
       setVoiceState('Executing');
       
-      const res = await fetch('http://127.0.0.1:8000/api/agent/command', {
+      const res = await fetch(`${API_BASE_URL}/api/agent/command`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: inputText }),
@@ -180,6 +278,23 @@ const VoiceCommandCenter = () => {
             >
               <Mic size={24} className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
+            
+            <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full transition-colors bg-surface-hover text-muted-text hover:text-primary hover:bg-primary/10"
+              title="Upload Audio File"
+              disabled={voiceState === 'Listening' || voiceState === 'Analyzing'}
+            >
+              <Paperclip size={20} className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload} 
+              accept="audio/*" 
+              className="hidden" 
+            />
             
             <div className="flex-1 min-w-0">
               <input 
@@ -280,20 +395,25 @@ const VoiceCommandCenter = () => {
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-muted-text uppercase tracking-wider mb-2">Result</h3>
-            <Card className={`p-4 border ${
+            <h3 className="text-xs font-semibold text-muted-text uppercase tracking-wider mb-2">RESULT</h3>
+            <Card className={`p-6 border shadow-sm ${
+              response.intent === 'LIST_ORDERS' ? 'bg-white border-border' :
               response.status === 'success' ? 'bg-success/5 border-success/20' : 
               response.status === 'needs_clarification' ? 'bg-warning/5 border-warning/20' :
               'bg-critical/5 border-critical/20'
             }`}>
-              <div className={`text-sm font-medium ${
-                response.status === 'success' ? 'text-success' : 
-                response.status === 'needs_clarification' ? 'text-warning' :
-                response.status === 'confirmation_required' ? 'text-accent' :
-                'text-critical'
-              }`}>
-                {response.message}
-              </div>
+              
+              {response.intent !== 'LIST_ORDERS' && (
+                <div className={`text-sm font-medium flex items-center gap-2 ${
+                  response.status === 'success' ? 'text-success' : 
+                  response.status === 'needs_clarification' ? 'text-warning' :
+                  response.status === 'confirmation_required' ? 'text-accent' :
+                  'text-critical'
+                }`}>
+                  {response.status === 'success' && <CheckCircle2 size={16} />}
+                  {response.message}
+                </div>
+              )}
               
               {response.status === 'confirmation_required' && response.data && (
                 <div className="mt-4 p-4 border border-accent/30 rounded-lg bg-surface space-y-4">
@@ -344,11 +464,15 @@ const VoiceCommandCenter = () => {
                 </div>
               )}
 
-              {/* Optional: Render raw JSON data purely for debugging/verification in this phase */}
+              {/* Dynamic Result Rendering */}
               {response.data && response.status !== 'confirmation_required' && (
-                <div className="mt-4 p-3 bg-background rounded border border-border overflow-auto max-h-64 text-xs font-mono text-muted-text">
-                  <pre>{JSON.stringify(response.data, null, 2)}</pre>
-                </div>
+                response.intent === 'LIST_ORDERS' ? (
+                  <OrderResultRenderer data={response.data} />
+                ) : (
+                  <div className="mt-4 p-3 bg-background rounded border border-border overflow-auto max-h-64 text-xs font-mono text-muted-text">
+                    <pre>{JSON.stringify(response.data, null, 2)}</pre>
+                  </div>
+                )
               )}
             </Card>
           </div>

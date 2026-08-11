@@ -1,6 +1,7 @@
 import type { APIErrorResponse } from './types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${host}:8000`;
 
 class APIError extends Error {
   public code: string;
@@ -34,7 +35,7 @@ export async function fetchClient<T>(endpoint: string, options: RequestInit = {}
       let errorData: APIErrorResponse;
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         throw new APIError('Unable to parse error response', 'PARSE_ERROR');
       }
       

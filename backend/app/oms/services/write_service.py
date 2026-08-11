@@ -19,7 +19,7 @@ class WriteService:
     def update_order_status(self, command: UpdateOrderStatusCommand) -> OrderSchema:
         try:
             # Verify exists
-            old_order = self._oms.get_order(command.order_id)
+            old_order = self._oms.retrieve_order_details(command.order_id)
             old_val = old_order.status
 
             # Allowed statuses for validation (could be pulled from a schema)
@@ -32,7 +32,7 @@ class WriteService:
                 # If they say "delivered", it matches "Delivered"
                 pass
 
-            updated_order = self._oms._repo.update_order_status(command.order_id, command.new_status.title())
+            updated_order = self._oms._repository.update_order_status(command.order_id, command.new_status.title())
             
             self._audit.log_event(
                 actor=self._actor,
@@ -58,12 +58,12 @@ class WriteService:
 
     def update_commitment_date(self, command: UpdateCommitmentDateCommand) -> OrderSchema:
         try:
-            old_order = self._oms.get_order(command.order_id)
+            old_order = self._oms.retrieve_order_details(command.order_id)
             old_val = old_order.commitment_date
             
             new_val = command.new_commitment_date.isoformat()
             
-            updated_order = self._oms._repo.update_order_commitment_date(command.order_id, new_val)
+            updated_order = self._oms._repository.update_order_commitment_date(command.order_id, new_val)
             
             self._audit.log_event(
                 actor=self._actor,

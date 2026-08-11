@@ -81,7 +81,7 @@ class OrderSchema(BaseModel):
     is_test: Optional[bool] = None
 
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
 class OrderTaskSchema(BaseModel):
     id: str
@@ -101,4 +101,4 @@ class OrderTaskSchema(BaseModel):
     updated_at: str
     meta: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")

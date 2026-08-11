@@ -12,6 +12,9 @@ class OrderQuery(PaginationQuery):
     business_model: Optional[str] = Field(default=None, description="Exact match on business model")
     product: Optional[str] = Field(default=None, description="Search term for product type or configuration")
     sales_exec: Optional[str] = Field(default=None, description="Exact match on sales executive name")
+    quantity: Optional[int] = Field(default=None, description="Exact match on quantity")
+    sort_by: Optional[str] = Field(default=None, description="Field to sort by (e.g. commitment_date, quantity, client_name)")
+    sort_order: Optional[str] = Field(default="desc", description="Sort order: asc or desc")
 
 class TaskQuery(PaginationQuery):
     """Business contract for querying OMS Tasks."""

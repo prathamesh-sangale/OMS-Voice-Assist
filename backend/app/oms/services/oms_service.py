@@ -22,7 +22,10 @@ class OMSService:
             status=query.status,
             business_model=query.business_model,
             product=query.product,
-            sales_exec=query.sales_exec
+            sales_exec=query.sales_exec,
+            quantity=query.quantity,
+            sort_by=query.sort_by,
+            sort_order=query.sort_order
         )
         return self._paginate(all_orders, query.page, query.page_size)
         
