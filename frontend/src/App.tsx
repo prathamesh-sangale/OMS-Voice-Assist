@@ -11,6 +11,8 @@ import ReportsPage from './features/reports/pages/ReportsPage';
 import ActivityPage from './features/activity/pages/ActivityPage';
 import SettingsPage from './features/settings/pages/SettingsPage';
 
+import { AgentProvider } from './app/providers/AgentProvider';
+
 // Fallback 404
 const NotFoundPage = () => (
   <div className="p-6">
@@ -24,22 +26,24 @@ const NotFoundPage = () => (
 const App = () => {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<AppLayout />}>
-          <Route index element={<Navigate to="/overview" replace />} />
-          <Route path="overview" element={<ExecutiveOverview />} />
-          <Route path="voice-command" element={<VoiceCommandCenter />} />
-          <Route path="orders" element={<OrdersPage />} />
-          <Route path="orders/:id" element={<OrderDetail />} />
-          <Route path="tasks" element={<TasksPage />} />
-          <Route path="customers" element={<CustomersPage />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="activity" element={<ActivityPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
+      <AgentProvider>
+        <Routes>
+          <Route path="/" element={<AppLayout />}>
+            <Route index element={<Navigate to="/overview" replace />} />
+            <Route path="overview" element={<ExecutiveOverview />} />
+            <Route path="voice-command" element={<VoiceCommandCenter />} />
+            <Route path="orders" element={<OrdersPage />} />
+            <Route path="orders/:id" element={<OrderDetail />} />
+            <Route path="tasks" element={<TasksPage />} />
+            <Route path="customers" element={<CustomersPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="activity" element={<ActivityPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
+      </AgentProvider>
     </BrowserRouter>
   );
 };

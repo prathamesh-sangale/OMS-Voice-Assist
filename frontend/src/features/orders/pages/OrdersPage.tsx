@@ -4,12 +4,15 @@ import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Drawer } from '../../../components/ui/Drawer';
 import { useNavigate } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { Search, X, Bot } from 'lucide-react';
 import { ordersApi, type OrderFilters } from '../../../services/api/orders';
 import type { Order } from '../../../services/api/types';
+import { useAgent } from '../../../app/providers/AgentProvider';
 
 const OrdersPage = () => {
   const navigate = useNavigate();
+  const { latestResponse } = useAgent();
+  
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,8 +21,27 @@ const OrdersPage = () => {
 
   const [filters, setFilters] = useState<OrderFilters>({});
   const [searchInput, setSearchInput] = useState('');
+  
+  // Track if we are showing a recent agent result
+  const [agentResultId, setAgentResultId] = useState<string | null>(null);
 
   useEffect(() => {
+    // If we have a new order list from the agent, use it directly
+    if (latestResponse?.response_type === 'order_list' && latestResponse.data) {
+      const sessionId = latestResponse.session_id || 'recent';
+      if (agentResultId !== sessionId && agentResultId !== `cleared_${sessionId}`) {
+        // Extract items if data is a paginated object
+        const newOrders = Array.isArray(latestResponse.data) 
+          ? latestResponse.data 
+          : (latestResponse.data?.items || []);
+        setOrders(newOrders);
+        setAgentResultId(sessionId);
+        setLoading(false);
+        return;
+      }
+    }
+    
+    // Otherwise, fetch normally
     const fetchOrders = async () => {
       try {
         setLoading(true);
@@ -32,8 +54,12 @@ const OrdersPage = () => {
         setLoading(false);
       }
     };
-    fetchOrders();
-  }, [filters]);
+    
+    // Only fetch if we are not explicitly holding an agent result
+    if (!agentResultId || agentResultId.startsWith('cleared_')) {
+      fetchOrders();
+    }
+  }, [filters, latestResponse, agentResultId]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -85,6 +111,20 @@ const OrdersPage = () => {
           </div>
         </div>
       </div>
+      {agentResultId && (
+        <div className="bg-primary/10 border border-primary/20 text-primary px-4 py-2 rounded-md flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Bot size={16} />
+            Showing results from latest command
+          </div>
+          <button 
+            onClick={() => setAgentResultId(`cleared_${latestResponse?.session_id || 'recent'}`)}
+            className="text-primary hover:text-primary/80 text-xs flex items-center gap-1"
+          >
+            Clear <X size={12} />
+          </button>
+        </div>
+      )}
 
       {error ? (
         <div className="p-4 bg-surface rounded-md border border-red-500 text-red-500">

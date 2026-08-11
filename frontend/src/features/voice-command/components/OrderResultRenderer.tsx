@@ -22,8 +22,8 @@ export const OrderResultRenderer = ({ data }: OrderResultRendererProps) => {
 
 
   return (
-    <div className="mt-6">
-      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-4 mb-4 border-b border-border">
+    <div className="mt-3 w-full">
+      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-3 mb-3 border-b border-border">
         <div className="flex items-center gap-2 text-success">
           <CheckCircle2 size={16} />
           <h3 className="text-sm font-medium">I found {total} orders matching your criteria.</h3>
@@ -31,13 +31,12 @@ export const OrderResultRenderer = ({ data }: OrderResultRendererProps) => {
         <div className="flex items-center gap-4 text-xs text-muted-text font-medium">
           <div className="flex items-center gap-1.5 cursor-pointer hover:text-text">
             <Filter size={14} />
-            <span>Showing {total} orders</span>
+            <span>Showing {items.length} of {total} orders</span>
           </div>
-          <Download size={14} className="cursor-pointer hover:text-text" />
         </div>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-full">
         {items.map((order: any, idx: number) => (
           <OrderCard key={order.id || idx} order={order} />
         ))}
