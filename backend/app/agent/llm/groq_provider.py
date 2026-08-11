@@ -21,13 +21,17 @@ class GroqLLMProvider(LLMProvider):
         self.client = Groq(api_key=self.api_key)
         self.model = "llama-3.1-8b-instant"
         
-    def parse_command(self, text: str) -> LLMStructuredIntent:
+    def parse_command(self, text: str, session_context: dict = None) -> LLMStructuredIntent:
         system_prompt = """
         You are the CEO Executive OMS Agent. 
         Your task is to classify the user's intent into one of the following capabilities:
-        GET_ORDER, LIST_ORDERS, GET_ORDER_TASKS, LIST_TASKS, LIST_CUSTOMERS, GET_OVERVIEW, GET_ANALYTICS, UPDATE_ORDER_STATUS, UPDATE_COMMITMENT_DATE, UNSUPPORTED.
+        GET_ORDER, LIST_ORDERS, GET_ORDER_TASKS, LIST_TASKS, LIST_CUSTOMERS, GET_OVERVIEW, GET_ANALYTICS, UPDATE_ORDER_STATUS, UPDATE_COMMITMENT_DATE, UPDATE_ORDER_DESTINATION, UNSUPPORTED.
         
-        Extract relevant entities (e.g. order_id like OR601, status, business_model).
+        Extract relevant entities for filtering or targeting (e.g. order_id like OR601, status, business_model, product, search, department, stage).
+        
+        CRITICAL: Conversational Refinements
+        If the user provides a refinement or correction (e.g., "quantity 2", "make it Mumbai", "not reefer"), you MUST merge these new constraints with the Active Query Context provided below. If they negate a filter, replace it. If they add a filter, include it with the existing ones. Do not discard previous filters unless instructed.
+        
         Return ONLY valid JSON matching this schema:
         {
             "intent": "<intent_name>",
@@ -36,6 +40,9 @@ class GroqLLMProvider(LLMProvider):
             "explanation": "<short explanation>"
         }
         """
+        
+        if session_context:
+            system_prompt += f"\nActive Query Context: {json.dumps(session_context)}\n"
         
         try:
             response = self.client.chat.completions.create(

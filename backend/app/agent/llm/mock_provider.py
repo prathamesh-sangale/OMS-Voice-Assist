@@ -11,7 +11,7 @@ class FakeLLMProvider(LLMProvider):
     def __init__(self, fail_mode: bool = False):
         self.fail_mode = fail_mode
 
-    def parse_command(self, text: str) -> LLMStructuredIntent:
+    def parse_command(self, text: str, session_context: Optional[dict] = None) -> LLMStructuredIntent:
         if self.fail_mode:
             raise LLMUnavailableError("Mock LLM is configured to fail.")
             

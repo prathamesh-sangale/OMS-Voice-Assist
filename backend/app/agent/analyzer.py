@@ -31,6 +31,8 @@ class HybridAnalyzer(CommandAnalyzer):
         self._registry = RuleRegistry()
         
         # Register rules
+        from .rules.order_rules import PositionalReferenceRule
+        self._registry.register(PositionalReferenceRule())
         self._registry.register(GetOrderRule())
         self._registry.register(ListOrdersFilterRule())
         self._registry.register(ListOrdersGenericRule())
@@ -39,11 +41,15 @@ class HybridAnalyzer(CommandAnalyzer):
         self._registry.register(ListCustomersRule())
         self._registry.register(GetOverviewRule())
         self._registry.register(GetAnalyticsRule())
-        from .rules.order_rules import UpdateOrderStatusRule, UpdateOrderCommitmentDateRule
+        from .rules.order_rules import UpdateOrderStatusRule, UpdateOrderCommitmentDateRule, UpdateOrderDestinationRule
         self._registry.register(UpdateOrderStatusRule())
         self._registry.register(UpdateOrderCommitmentDateRule())
+        self._registry.register(UpdateOrderDestinationRule())
         
-    def analyze(self, command: CommandInput) -> IntentResult:
+        from .rules.navigation_rules import NavigationRule
+        self._registry.register(NavigationRule())
+        
+    def analyze(self, command: CommandInput, session=None) -> IntentResult:
         # 0. System commands interception
         raw_text = command.text.strip()
         if raw_text.startswith("!confirm "):
@@ -67,6 +73,24 @@ class HybridAnalyzer(CommandAnalyzer):
                 
         # 1. Normalization
         text = TextNormalizer.normalize(command.text)
+        text_lower = text.lower()
+        
+        # Undo / Cancel interception
+        if text_lower in ["reset the change", "undo", "revert"]:
+            if session and session.context.operation_status == "pending_confirmation":
+                return IntentResult(
+                    intent=AgentIntent.CANCEL_ACTION,
+                    confidence=1.0,
+                    entities={"confirmation_id": session.context.confirmation_id},
+                    metadata={"method": "System"}
+                )
+            else:
+                return IntentResult(
+                    intent=AgentIntent.UNSUPPORTED,
+                    confidence=1.0,
+                    explanation="I can't automatically undo that completed change yet.",
+                    metadata={"method": "System"}
+                )
         
         # Security: Explicitly unsupported operations blocked before LLM
         if "delete" in text or "create" in text or "add" in text:
@@ -92,7 +116,8 @@ class HybridAnalyzer(CommandAnalyzer):
         if result.intent == AgentIntent.UNSUPPORTED and result.confidence == 0.0:
             logger.info("Rule Engine could not resolve command. Falling back to LLM.")
             try:
-                llm_intent = self._llm.parse_command(command.text)
+                context_dict = session.context.last_result_context.get("query") if (session and session.context.last_result_context) else None
+                llm_intent = self._llm.parse_command(command.text, session_context=context_dict)
                 
                 # Convert LLMStructuredIntent to IntentResult and generate Query Contract
                 result = IntentResult(
