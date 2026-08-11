@@ -208,3 +208,34 @@ class JSONOMSRepository(BaseOMSRepository):
                     self._save_data()
                     return updated
             raise OMSRecordNotFoundError(f"Order not found with ID: {order_id}")
+
+    def update_order_destination(self, order_id: str, new_destination: str) -> OrderSchema:
+        with self._lock:
+            for i, order in enumerate(self._orders):
+                if order.id == order_id or order.order_number == order_id:
+                    updated = order.model_copy(update={"delivery_city": new_destination})
+                    self._orders[i] = updated
+                    self._save_data()
+                    return updated
+            raise OMSRecordNotFoundError(f"Order not found with ID: {order_id}")
+
+    def create_order(self, payload: dict) -> OrderSchema:
+        import uuid
+        from datetime import datetime
+        with self._lock:
+            # Generate a simple ID like OR + length
+            new_id = f"OR{800 + len(self._orders)}"
+            
+            order = OrderSchema(
+                id=str(uuid.uuid4()),
+                order_number=new_id,
+                status="Pending",
+                current_stage="Draft",
+                created_at=datetime.utcnow().isoformat(),
+                updated_at=datetime.utcnow().isoformat(),
+                **payload
+            )
+            
+            self._orders.append(order)
+            self._save_data()
+            return order

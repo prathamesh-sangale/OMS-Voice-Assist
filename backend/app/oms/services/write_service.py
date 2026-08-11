@@ -1,87 +1,146 @@
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from .oms_service import OMSService
 from .audit import AuditLogger
-from ..contracts.commands import UpdateOrderStatusCommand, UpdateCommitmentDateCommand
+from ..contracts.commands import UpdateOrderStatusCommand, UpdateCommitmentDateCommand, UpdateOrderDestinationCommand, CreateOrderCommand
 from ..schemas.oms import OrderSchema
 from ..exceptions import OMSRecordNotFoundError
 
 class WriteService:
     """
-    Handles business logic and persistence for OMS writes.
+    Handles business logic and persistence for OMS writes, supporting multi-target operations with partial failures.
     """
     def __init__(self, oms_service: OMSService):
         self._oms = oms_service
         self._audit = AuditLogger()
-        self._actor = "CEO"  # Mock authorization for Phase 5
+        self._actor = "CEO"  # Mock authorization
 
-    def update_order_status(self, command: UpdateOrderStatusCommand) -> OrderSchema:
+    def update_order_status(self, command: UpdateOrderStatusCommand) -> Dict[str, Any]:
+        results = {"success": [], "failed": []}
+        
+        allowed = ["Pending", "In Progress", "Needs Revision", "Shipped", "Delivered", "Canceled", "Completed", "Active"]
+        new_val_formatted = command.new_status.title()
+
+        for oid in command.order_ids:
+            try:
+                old_order = self._oms.retrieve_order_details(oid)
+                old_val = old_order.status
+                
+                updated_order = self._oms._repository.update_order_status(oid, new_val_formatted)
+                
+                self._audit.log_event(
+                    actor=self._actor,
+                    intent="UPDATE_ORDER_STATUS",
+                    target=oid,
+                    old_value=old_val,
+                    new_value=updated_order.status,
+                    status="SUCCESS"
+                )
+                results["success"].append(updated_order)
+            except Exception as e:
+                self._audit.log_event(
+                    actor=self._actor,
+                    intent="UPDATE_ORDER_STATUS",
+                    target=oid,
+                    old_value=None,
+                    new_value=command.new_status,
+                    status="FAILED",
+                    reason=str(e)
+                )
+                results["failed"].append({"order_id": oid, "reason": str(e)})
+                
+        return results
+
+    def update_commitment_date(self, command: UpdateCommitmentDateCommand) -> Dict[str, Any]:
+        results = {"success": [], "failed": []}
+        new_val = command.new_commitment_date.isoformat()
+
+        for oid in command.order_ids:
+            try:
+                old_order = self._oms.retrieve_order_details(oid)
+                old_val = old_order.commitment_date
+                
+                updated_order = self._oms._repository.update_order_commitment_date(oid, new_val)
+                
+                self._audit.log_event(
+                    actor=self._actor,
+                    intent="UPDATE_COMMITMENT_DATE",
+                    target=oid,
+                    old_value=old_val,
+                    new_value=updated_order.commitment_date,
+                    status="SUCCESS"
+                )
+                results["success"].append(updated_order)
+            except Exception as e:
+                self._audit.log_event(
+                    actor=self._actor,
+                    intent="UPDATE_COMMITMENT_DATE",
+                    target=oid,
+                    old_value=None,
+                    new_value=new_val,
+                    status="FAILED",
+                    reason=str(e)
+                )
+                results["failed"].append({"order_id": oid, "reason": str(e)})
+                
+        return results
+
+    def update_order_destination(self, command: UpdateOrderDestinationCommand) -> Dict[str, Any]:
+        results = {"success": [], "failed": []}
+        new_val = command.new_destination
+
+        for oid in command.order_ids:
+            try:
+                old_order = self._oms.retrieve_order_details(oid)
+                old_val = old_order.delivery_city
+                
+                updated_order = self._oms._repository.update_order_destination(oid, new_val)
+                
+                self._audit.log_event(
+                    actor=self._actor,
+                    intent="UPDATE_ORDER_DESTINATION",
+                    target=oid,
+                    old_value=old_val,
+                    new_value=updated_order.delivery_city,
+                    status="SUCCESS"
+                )
+                results["success"].append(updated_order)
+            except Exception as e:
+                self._audit.log_event(
+                    actor=self._actor,
+                    intent="UPDATE_ORDER_DESTINATION",
+                    target=oid,
+                    old_value=None,
+                    new_value=new_val,
+                    status="FAILED",
+                    reason=str(e)
+                )
+                results["failed"].append({"order_id": oid, "reason": str(e)})
+                
+        return results
+
+    def create_order(self, command: CreateOrderCommand) -> OrderSchema:
         try:
-            # Verify exists
-            old_order = self._oms.retrieve_order_details(command.order_id)
-            old_val = old_order.status
-
-            # Allowed statuses for validation (could be pulled from a schema)
-            allowed = ["Pending", "In Progress", "Needs Revision", "Shipped", "Delivered", "Canceled", "Completed", "Active"]
-            
-            # Simple case insensitive check
-            new_val_formatted = command.new_status.title()
-            
-            if new_val_formatted not in allowed:
-                # If they say "delivered", it matches "Delivered"
-                pass
-
-            updated_order = self._oms._repository.update_order_status(command.order_id, command.new_status.title())
+            created_order = self._oms._repository.create_order(command.model_dump())
             
             self._audit.log_event(
                 actor=self._actor,
-                intent="UPDATE_ORDER_STATUS",
-                target=command.order_id,
-                old_value=old_val,
-                new_value=updated_order.status,
+                intent="CREATE_ORDER",
+                target=created_order.id,
+                old_value=None,
+                new_value="New Order Draft Created",
                 status="SUCCESS"
             )
-            return updated_order
+            return created_order
             
         except Exception as e:
             self._audit.log_event(
                 actor=self._actor,
-                intent="UPDATE_ORDER_STATUS",
-                target=command.order_id,
+                intent="CREATE_ORDER",
+                target="NEW",
                 old_value=None,
-                new_value=command.new_status,
-                status="FAILED",
-                reason=str(e)
-            )
-            raise
-
-    def update_commitment_date(self, command: UpdateCommitmentDateCommand) -> OrderSchema:
-        try:
-            old_order = self._oms.retrieve_order_details(command.order_id)
-            old_val = old_order.commitment_date
-            
-            new_val = command.new_commitment_date.isoformat()
-            
-            updated_order = self._oms._repository.update_order_commitment_date(command.order_id, new_val)
-            
-            self._audit.log_event(
-                actor=self._actor,
-                intent="UPDATE_COMMITMENT_DATE",
-                target=command.order_id,
-                old_value=old_val,
-                new_value=updated_order.commitment_date,
-                status="SUCCESS"
-            )
-            return updated_order
-            
-        except Exception as e:
-            self._audit.log_event(
-                actor=self._actor,
-                intent="UPDATE_COMMITMENT_DATE",
-                target=command.order_id,
-                old_value=None,
-                new_value=command.new_commitment_date.isoformat(),
+                new_value="Failed Draft",
                 status="FAILED",
                 reason=str(e)
             )
