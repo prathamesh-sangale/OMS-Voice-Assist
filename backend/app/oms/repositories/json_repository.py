@@ -106,12 +106,16 @@ class JSONOMSRepository(BaseOMSRepository):
             
         if product:
             def matches_product(o: OrderSchema, p: str) -> bool:
-                p = p.lower()
-                if p in (o.product_type or "").lower():
+                p_lower = p.lower().replace("containers", "container").replace("tanks", "tank")
+                def check(val: str) -> bool:
+                    v = (val or "").lower()
+                    return p_lower in v or v in p_lower
+                    
+                if check(o.product_type):
                     return True
-                if any(p in (pt or "").lower() for pt in (o.product_types or [])):
+                if any(check(pt) for pt in (o.product_types or [])):
                     return True
-                if any(p in (pc.product or "").lower() for pc in (o.product_configs or [])):
+                if any(check(pc.product) for pc in (o.product_configs or [])):
                     return True
                 return False
             result = [o for o in result if matches_product(o, product)]
@@ -214,6 +218,16 @@ class JSONOMSRepository(BaseOMSRepository):
             for i, order in enumerate(self._orders):
                 if order.id == order_id or order.order_number == order_id:
                     updated = order.model_copy(update={"delivery_city": new_destination})
+                    self._orders[i] = updated
+                    self._save_data()
+                    return updated
+            raise OMSRecordNotFoundError(f"Order not found with ID: {order_id}")
+
+    def update_order_generic(self, order_id: str, updates: dict) -> OrderSchema:
+        with self._lock:
+            for i, order in enumerate(self._orders):
+                if order.id == order_id or order.order_number == order_id:
+                    updated = order.model_copy(update=updates)
                     self._orders[i] = updated
                     self._save_data()
                     return updated

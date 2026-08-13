@@ -130,6 +130,17 @@ class TargetResolverService:
                     "query_context": {}
                 }
             )
+        elif "order_ids" in session.context.entities and session.context.entities["order_ids"]:
+            order_id = normalize_order_id(session.context.entities["order_ids"][0])
+            return ResolvedTarget(
+                order_ids=[order_id],
+                structured_target={
+                    "type": "single",
+                    "order_ids": [order_id],
+                    "source": "current_conversation_entity",
+                    "query_context": {}
+                }
+            )
 
         # 5. Previous Result Context
         if session.context.last_result_context and session.context.last_result_context.get("identifiers"):

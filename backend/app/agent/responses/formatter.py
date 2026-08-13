@@ -1,51 +1,65 @@
-from typing import Any
+from typing import Any, Tuple
 from ..models.intent import AgentIntent
 
 class ResponseFormatter:
-    """Converts OMS result payloads into human readable text."""
+    """Formats raw data into user-friendly UI responses and concise spoken TTS responses."""
     
     @staticmethod
-    def format_success(intent: AgentIntent, data: Any) -> str:
+    def format_success(intent: AgentIntent, data: Any) -> Tuple[str, str]:
         if intent == AgentIntent.LIST_ORDERS:
-            return f"I found {data.total} orders matching your criteria."
+            message = f"I found {data.total} orders matching your criteria."
+            return message, message
             
         if intent == AgentIntent.GET_ORDER:
-            return f"Here are the details for order {data.order_number}."
+            # data is typically OMSRecord
+            message = f"Here are the details for order {data.order_number}."
+            spoken = f"Order {data.order_number} is currently {data.status} and is assigned to {data.client_name}."
+            return message, spoken
             
         if intent == AgentIntent.LIST_TASKS:
-            return f"I found {data.total} tasks."
+            message = f"I found {data.total} tasks."
+            return message, message
             
         if intent == AgentIntent.GET_ORDER_TASKS:
-            return f"I found {len(data)} tasks for that order."
+            message = f"I found {len(data)} tasks for that order."
+            return message, message
             
         if intent == AgentIntent.LIST_CUSTOMERS:
-            return f"I found {data.total} customers matching your criteria."
+            message = f"I found {data.total} customers matching your criteria."
+            return message, message
             
         if intent == AgentIntent.GET_OVERVIEW:
-            return "Here is the executive overview."
+            message = "Here is the executive overview."
+            return message, message
             
         if intent == AgentIntent.GET_ANALYTICS:
-            return "Here is the analytical distribution."
+            message = "Here is the analytical distribution."
+            return message, message
             
         if intent == AgentIntent.CONFIRM_ACTION and isinstance(data, dict):
             # Format WriteService results
             success_count = len(data.get("success", []))
             fail_count = len(data.get("failed", []))
             if fail_count == 0 and success_count == 1:
-                return "Update applied successfully."
+                message = "Update applied successfully."
+                return message, message
             elif fail_count == 0 and success_count > 1:
-                return f"{success_count} orders updated successfully."
+                message = f"{success_count} orders updated successfully."
+                return message, message
             elif success_count > 0 and fail_count > 0:
-                return f"{success_count} orders updated successfully. {fail_count} could not be updated."
+                message = f"{success_count} orders updated successfully. {fail_count} could not be updated."
+                return message, message
             elif success_count == 0 and fail_count > 0:
-                return f"Update failed for {fail_count} orders."
+                message = f"Update failed for {fail_count} orders."
+                return message, message
             
-        return "Command executed successfully."
+        return "Command executed successfully.", "Command executed successfully."
 
     @staticmethod
-    def format_error(error_msg: str) -> str:
-        return f"Sorry, I encountered an error: {error_msg}"
+    def format_error(error_msg: str) -> Tuple[str, str]:
+        return f"Sorry, I encountered an error: {error_msg}", f"Sorry, I encountered an error: {error_msg}"
         
     @staticmethod
-    def format_not_found(entity_id: str) -> str:
-        return f"I could not find the record: {entity_id}"
+    def format_not_found(entity_id: str) -> Tuple[str, str]:
+        message = f"I could not find the record: {entity_id}"
+        return message, message

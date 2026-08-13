@@ -36,7 +36,7 @@ class AgentExecutor:
         if result.intent in self._read_registry:
             return self._execute_read(result)
             
-        if result.intent in [AgentIntent.CREATE_ORDER, AgentIntent.UPDATE_ORDER_STATUS, AgentIntent.UPDATE_COMMITMENT_DATE, AgentIntent.UPDATE_ORDER_DESTINATION]:
+        if result.intent in [AgentIntent.CREATE_ORDER, AgentIntent.UPDATE_ORDER]:
             return self._execute_write(result)
             
         if result.intent == AgentIntent.CONFIRM_ACTION:
@@ -119,56 +119,26 @@ class AgentExecutor:
         if len(order_ids) == 1:
             try:
                 old_order = self._oms_service.retrieve_order_details(order_ids[0])
-                if result.intent == AgentIntent.UPDATE_ORDER_STATUS:
-                    old_value = old_order.status
-                elif result.intent == AgentIntent.UPDATE_COMMITMENT_DATE:
-                    old_value = old_order.commitment_date
-                elif result.intent == AgentIntent.UPDATE_ORDER_DESTINATION:
-                    old_value = old_order.delivery_city
+                if result.intent == AgentIntent.UPDATE_ORDER:
+                    old_value = "Multiple Fields"
             except OMSRecordNotFoundError:
                 pass
         else:
             old_value = "Multiple Orders"
 
         # If not already confirmed (no confirmation_id in entities), require confirmation
-        if result.intent == AgentIntent.UPDATE_ORDER_STATUS:
-            new_val = result.entities.get("new_status")
-            if not new_val:
-                raise ExecutionError("Missing required entity: new_status")
+        if result.intent == AgentIntent.UPDATE_ORDER:
+            updates = result.entities.get("updates")
+            if not updates or not isinstance(updates, dict):
+                raise ExecutionError("Missing required entity: updates")
                 
             action = self._confirmation_service.create_pending_action(
                 intent=result.intent.value,
-                command_payload={"order_ids": order_ids, "new_status": new_val},
-                description="Update order status",
+                command_payload={"order_ids": order_ids, "updates": updates},
+                description=f"Update order fields: {', '.join(updates.keys())}",
                 target=order_ids,
                 old_value=old_value,
-                new_value=new_val
-            )
-        elif result.intent == AgentIntent.UPDATE_COMMITMENT_DATE:
-            new_val = result.entities.get("new_commitment_date_candidate") or result.entities.get("new_commitment_date")
-            if not new_val:
-                raise ExecutionError("Missing required entity: new_commitment_date")
-                
-            action = self._confirmation_service.create_pending_action(
-                intent=result.intent.value,
-                command_payload={"order_ids": order_ids, "new_commitment_date": new_val},
-                description="Update order commitment date",
-                target=order_ids,
-                old_value=old_value,
-                new_value=new_val
-            )
-        elif result.intent == AgentIntent.UPDATE_ORDER_DESTINATION:
-            new_val = result.entities.get("new_destination")
-            if not new_val:
-                raise ExecutionError("Missing required entity: new_destination")
-                
-            action = self._confirmation_service.create_pending_action(
-                intent=result.intent.value,
-                command_payload={"order_ids": order_ids, "new_destination": new_val},
-                description="Update order destination",
-                target=order_ids,
-                old_value=old_value,
-                new_value=new_val
+                new_value=str(updates)
             )
         else:
             raise UnsupportedIntentError("Unsupported write operation")
@@ -202,15 +172,10 @@ class AgentExecutor:
         try:
             self._confirmation_service.consume(action_id)
             
-            if action.intent == AgentIntent.UPDATE_ORDER_STATUS.value:
-                cmd = UpdateOrderStatusCommand(**action.command_payload)
-                data = self._write_service.update_order_status(cmd)
-            elif action.intent == AgentIntent.UPDATE_COMMITMENT_DATE.value:
-                cmd = UpdateCommitmentDateCommand(**action.command_payload)
-                data = self._write_service.update_commitment_date(cmd)
-            elif action.intent == AgentIntent.UPDATE_ORDER_DESTINATION.value:
-                cmd = UpdateOrderDestinationCommand(**action.command_payload)
-                data = self._write_service.update_order_destination(cmd)
+            if action.intent == AgentIntent.UPDATE_ORDER.value:
+                from ...oms.contracts.commands import UpdateOrderCommand
+                cmd = UpdateOrderCommand(**action.command_payload)
+                data = self._write_service.update_order(cmd)
             elif action.intent == AgentIntent.CREATE_ORDER.value:
                 from ...oms.contracts.commands import CreateOrderCommand
                 cmd = CreateOrderCommand(**action.command_payload)

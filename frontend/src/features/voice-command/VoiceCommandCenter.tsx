@@ -6,20 +6,22 @@ import { useAgent } from '../../app/providers/AgentProvider';
 import type { ConversationSession } from '../../types/agent';
 import { OrderDetailsCard } from './components/OrderDetailsCard';
 import { OrderResultRenderer } from './components/OrderResultRenderer';
+import { useVoiceRecording } from '../../hooks/useVoiceRecording';
 
 const VoiceCommandCenter = () => {
   const {
     sessionId, setSessionId,
     currentSession, setCurrentSession,
     voiceState, setVoiceState,
-    dispatchCommand
+    dispatchCommand,
+    isOverlayOpen
   } = useAgent();
+
+  const { startRecording, stopRecording, transcript: hookTranscript } = useVoiceRecording();
 
   const [inputText, setInputText] = useState('');
   const [sessions, setSessions] = useState<ConversationSession[]>([]);
   
-
-  const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -45,6 +47,17 @@ const VoiceCommandCenter = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentSession?.messages, voiceState]);
 
+  // Auto-start recording for continuous conversational loop like Siri
+  // Only if GlobalCommandOverlay isn't doing it
+  useEffect(() => {
+    if (!isOverlayOpen && voiceState === 'Waiting_For_User') {
+      const timer = setTimeout(() => {
+        startRecording();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [voiceState, isOverlayOpen, startRecording]);
+
   const fetchSessions = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/agent/sessions`);
@@ -63,7 +76,7 @@ const VoiceCommandCenter = () => {
     setSessionId(undefined);
     setCurrentSession(null);
     setInputText('');
-    setVoiceState('Ready');
+    setVoiceState('Idle');
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,9 +95,9 @@ const VoiceCommandCenter = () => {
     .then(data => {
       if (data.status === 'success') {
         setInputText(data.transcript);
-        setVoiceState('Ready');
+        setVoiceState('You_Said');
         // Auto submit
-        setTimeout(() => dispatchCommand(data.transcript, 'voice'), 100);
+        setTimeout(() => dispatchCommand(data.transcript, 'voice'), 600);
       } else {
         setVoiceState('Error');
       }
@@ -95,55 +108,6 @@ const VoiceCommandCenter = () => {
     });
     
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  // playTTS removed since we don't use it directly here now
-
-  const startRecording = async () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = true;
-        recognitionRef.current = recognition;
-
-        recognition.onstart = () => {
-          setVoiceState('Listening');
-          setInputText('');
-        };
-
-        recognition.onresult = (event: any) => {
-          let transcript = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            transcript += event.results[i][0].transcript;
-          }
-          setInputText(transcript);
-        };
-
-        recognition.onerror = () => setVoiceState('Error');
-        
-        recognition.onend = () => {
-          if (voiceState === 'Listening') {
-            setTimeout(() => {
-              const finalTranscript = document.querySelector('input[type="text"]')?.getAttribute('value') || inputText;
-              if (finalTranscript) dispatchCommand(finalTranscript, 'voice');
-            }, 100);
-            setVoiceState('Analyzing');
-          }
-        };
-
-        recognition.start();
-        return;
-      } catch (err) {}
-    }
-
-    // MediaRecorder fallback omitted for brevity in rewritten phase, assuming SpeechRecognition works
-    alert("Speech recognition not supported in this browser without HTTPS.");
-  };
-
-  const stopRecording = () => {
-    if (recognitionRef.current) recognitionRef.current.stop();
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -252,12 +216,20 @@ const VoiceCommandCenter = () => {
             ))
           )}
           
-          {/* Typing Indicator */}
-          {(voiceState === 'Analyzing' || voiceState === 'Executing') && (
+          {/* States Indicator */}
+          {(voiceState === 'Understanding' || voiceState === 'Executing' || voiceState === 'Transcribing' || voiceState === 'You_Said') && (
             <div className="flex justify-start">
               <div className="bg-background border border-border rounded-2xl rounded-bl-none px-4 py-3 shadow-sm flex items-center gap-2">
-                <Loader2 size={16} className="animate-spin text-primary" />
-                <span className="text-sm text-muted-text">Agent is thinking...</span>
+                {voiceState === 'You_Said' ? (
+                  <span className="text-sm text-text"><span className="text-muted-text font-medium text-xs tracking-wider uppercase">You said:</span> {hookTranscript || inputText}</span>
+                ) : (
+                  <>
+                    <Loader2 size={16} className="animate-spin text-primary" />
+                    <span className="text-sm text-muted-text">
+                      {voiceState === 'Transcribing' ? 'Transcribing audio...' : 'Agent is thinking...'}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -293,10 +265,19 @@ const VoiceCommandCenter = () => {
           <form onSubmit={handleFormSubmit} className="flex items-center gap-2 sm:gap-4 w-full">
             <button 
               type="button"
-              onClick={voiceState === 'Listening' ? stopRecording : startRecording}
+              onClick={() => {
+                if (voiceState === 'Listening') {
+                  stopRecording();
+                } else if (voiceState !== 'Playing' && voiceState !== 'Executing' && voiceState !== 'Transcribing') {
+                  startRecording();
+                }
+              }}
+              disabled={voiceState === 'Playing' || voiceState === 'Executing' || voiceState === 'Transcribing'}
               className={`shrink-0 w-12 h-12 flex items-center justify-center rounded-full transition-colors ${
                 voiceState === 'Listening' 
                   ? 'bg-critical text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]' 
+                  : (voiceState === 'Playing' || voiceState === 'Executing' || voiceState === 'Transcribing')
+                  ? 'bg-surface-hover text-muted-text opacity-50 cursor-not-allowed border border-border shadow-sm'
                   : 'bg-surface hover:bg-surface-hover text-muted-text hover:text-primary border border-border shadow-sm'
               }`}
             >
@@ -326,13 +307,13 @@ const VoiceCommandCenter = () => {
                 className="w-full bg-transparent border-none outline-none text-base text-text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                disabled={voiceState === 'Analyzing' || voiceState === 'Executing'}
+                disabled={voiceState === 'Understanding' || voiceState === 'Executing' || voiceState === 'Transcribing'}
               />
             </div>
             
             <button 
               type="submit"
-              disabled={!inputText.trim() || voiceState === 'Analyzing' || voiceState === 'Executing'}
+              disabled={!inputText.trim() || voiceState === 'Understanding' || voiceState === 'Executing' || voiceState === 'Transcribing'}
               className="shrink-0 w-12 h-12 flex items-center justify-center rounded-full transition-colors bg-primary text-white hover:bg-primary/90 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send size={20} className="ml-1" />

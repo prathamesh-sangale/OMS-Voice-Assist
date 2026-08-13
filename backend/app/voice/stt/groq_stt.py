@@ -43,10 +43,19 @@ class GroqWhisperProvider(STTProvider):
                 file=file_tuple,
                 model=self.model,
                 response_format="verbose_json",
+                temperature=0.0,
+                language="en",
+                prompt="OMS, orders, dry container, reefer container, ISO tank, client, Acme, refer, order, container."
             )
             
             # Safely extract values since they might not be present
-            text = getattr(transcription, 'text', '')
+            text = getattr(transcription, 'text', '').strip()
+            
+            # Filter known Whisper silence hallucinations
+            hallucinations = ["thank you.", "thank you", "спасибо.", "hello.", "hello", "you", "thanks for watching", "thanks for watching.", ""]
+            if text.lower() in hallucinations:
+                text = ""
+                
             language = getattr(transcription, 'language', None)
             duration = getattr(transcription, 'duration', None)
             

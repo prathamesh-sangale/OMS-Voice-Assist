@@ -22,27 +22,10 @@ class GroqLLMProvider(LLMProvider):
         self.model = "llama-3.1-8b-instant"
         
     def parse_command(self, text: str, session_context: dict = None) -> LLMStructuredIntent:
-        system_prompt = """
-        You are the CEO Executive OMS Agent. 
-        Your task is to classify the user's intent into one of the following capabilities:
-        GET_ORDER, LIST_ORDERS, GET_ORDER_TASKS, LIST_TASKS, LIST_CUSTOMERS, GET_OVERVIEW, GET_ANALYTICS, UPDATE_ORDER_STATUS, UPDATE_COMMITMENT_DATE, UPDATE_ORDER_DESTINATION, UNSUPPORTED.
-        
-        Extract relevant entities for filtering or targeting (e.g. order_id like OR601, status, business_model, product, search, department, stage).
-        
-        CRITICAL: Conversational Refinements
-        If the user provides a refinement or correction (e.g., "quantity 2", "make it Mumbai", "not reefer"), you MUST merge these new constraints with the Active Query Context provided below. If they negate a filter, replace it. If they add a filter, include it with the existing ones. Do not discard previous filters unless instructed.
-        
-        Return ONLY valid JSON matching this schema:
-        {
-            "intent": "<intent_name>",
-            "confidence": <float 0.0-1.0>,
-            "entities": {"key": "value"},
-            "explanation": "<short explanation>"
-        }
-        """
-        
+        from .prompts import AGENT_SYSTEM_PROMPT
+        system_prompt = AGENT_SYSTEM_PROMPT
         if session_context:
-            system_prompt += f"\nActive Query Context: {json.dumps(session_context)}\n"
+            system_prompt += f"\nActive Session Context: {json.dumps(session_context)}\n"
         
         try:
             response = self.client.chat.completions.create(
@@ -58,8 +41,12 @@ class GroqLLMProvider(LLMProvider):
             result_text = response.choices[0].message.content
             data = json.loads(result_text)
             
+            intent_str = data.get("intent", AgentIntent.UNSUPPORTED.value)
+            if isinstance(intent_str, str) and intent_str.startswith("AgentIntent."):
+                intent_str = intent_str.replace("AgentIntent.", "")
+            
             return LLMStructuredIntent(
-                intent=data.get("intent", AgentIntent.UNSUPPORTED.value),
+                intent=intent_str,
                 confidence=float(data.get("confidence", 0.0)),
                 entities=data.get("entities", {}),
                 explanation=data.get("explanation", "AI analyzed via Groq.")

@@ -49,7 +49,19 @@ class AgentRouter:
         }
         
         # 2. Check for Pending Answer (Bypass Analyzer)
-        if self._session_service.process_pending_answer(session, command.text):
+        pending_status = self._session_service.process_pending_answer(session, command.text)
+        if pending_status == "aborted":
+            response = AgentResponse(
+                status="success",
+                message="Operation cancelled.",
+                spoken_response="Operation cancelled.",
+                intent=AgentIntent.CANCEL_ACTION,
+                session_id=session.id
+            )
+            session.add_message(role="agent", text=response.message)
+            self._session_service.save_session(session)
+            return response
+        elif pending_status == "processed":
             intent_result = IntentResult(
                 intent=AgentIntent(session.context.intent),
                 confidence=1.0,
@@ -73,13 +85,19 @@ class AgentRouter:
 
             # 3. Analyze Command Normally
             intent_result = self._analyzer.analyze(command, session=session)
+            
+            # Global normalization for order_id
+            if "order_id" in intent_result.entities:
+                from app.agent.normalization.order_id import normalize_order_id
+                intent_result.entities["order_id"] = normalize_order_id(str(intent_result.entities["order_id"]))
+            
             metadata["confidence"] = intent_result.confidence
             metadata["explanation"] = intent_result.explanation
             
             session.context.intent = intent_result.intent.value if intent_result.intent else None
             
             # Target Resolution for Write Operations (if not CREATE_ORDER)
-            if intent_result.intent in [AgentIntent.UPDATE_ORDER_STATUS, AgentIntent.UPDATE_COMMITMENT_DATE, AgentIntent.UPDATE_ORDER_DESTINATION]:
+            if intent_result.intent == AgentIntent.UPDATE_ORDER:
                 # Attempt to resolve target
                 resolved_target = self._target_resolver.resolve_target(intent_result, session)
                 if resolved_target.is_ambiguous:
@@ -88,6 +106,7 @@ class AgentRouter:
                     response = AgentResponse(
                         status="needs_clarification",
                         message=resolved_target.clarification_message or "Which order should I update?",
+                        spoken_response=resolved_target.clarification_message or "Which order should I update?",
                         intent=intent_result.intent,
                         metadata=metadata,
                         requires_clarification=True,
@@ -101,7 +120,7 @@ class AgentRouter:
                     session.context.target_orders = resolved_target.structured_target
                     intent_result.entities["order_ids"] = resolved_target.order_ids
 
-            if intent_result.intent in [AgentIntent.CREATE_ORDER, AgentIntent.UPDATE_ORDER_STATUS, AgentIntent.UPDATE_COMMITMENT_DATE, AgentIntent.UPDATE_ORDER_DESTINATION]:
+            if intent_result.intent in [AgentIntent.CREATE_ORDER, AgentIntent.UPDATE_ORDER]:
                 session.context.operation_status = "collecting"
                 for k, v in intent_result.entities.items():
                     if k not in ["order_id", "order_ids", "confirmation_id"]: 
@@ -117,6 +136,7 @@ class AgentRouter:
             response = AgentResponse(
                 status="unsupported",
                 message="I can't perform that OMS operation yet.",
+                spoken_response="I can't perform that OMS operation yet.",
                 intent=intent_result.intent,
                 metadata=metadata,
                 session_id=session.id
@@ -129,6 +149,7 @@ class AgentRouter:
             response = AgentResponse(
                 status="needs_clarification",
                 message=intent_result.explanation or "Which order would you like to see?",
+                spoken_response=intent_result.explanation or "Which order would you like to see?",
                 intent=intent_result.intent,
                 metadata=metadata,
                 requires_clarification=True,
@@ -139,7 +160,7 @@ class AgentRouter:
             return response
 
         # 5. Draft Evaluation (Missing fields check)
-        if intent_result.intent in [AgentIntent.CREATE_ORDER, AgentIntent.UPDATE_ORDER_STATUS, AgentIntent.UPDATE_COMMITMENT_DATE, AgentIntent.UPDATE_ORDER_DESTINATION]:
+        if intent_result.intent in [AgentIntent.CREATE_ORDER, AgentIntent.UPDATE_ORDER]:
             intent_result.entities.update(session.context.draft)
             if "order_ids" in session.context.entities:
                 intent_result.entities["order_ids"] = session.context.entities["order_ids"]
@@ -153,6 +174,7 @@ class AgentRouter:
                 response = AgentResponse(
                     status="needs_clarification",
                     message=prompt,
+                    spoken_response=prompt,
                     intent=intent_result.intent,
                     metadata=metadata,
                     requires_clarification=True,
@@ -171,9 +193,10 @@ class AgentRouter:
             ]:
                 data = {"status": "navigating"}
                 message = "Navigating..."
+                spoken = "Navigating."
             else:
                 data = self._executor.execute(intent_result)
-                message = ResponseFormatter.format_success(intent_result.intent, data)
+                message, spoken = ResponseFormatter.format_success(intent_result.intent, data)
                 
                 # Check for complete failure during CONFIRM_ACTION
                 if intent_result.intent == AgentIntent.CONFIRM_ACTION and isinstance(data, dict):
@@ -182,13 +205,14 @@ class AgentRouter:
                         return AgentResponse(
                             status="error",
                             message=message,
+                            spoken_response=spoken,
                             intent=intent_result.intent,
                             metadata=metadata,
                             session_id=session.id
                         )
             
             # Post-execution Context Tracking
-            if intent_result.intent in [AgentIntent.CREATE_ORDER, AgentIntent.UPDATE_ORDER_STATUS, AgentIntent.UPDATE_COMMITMENT_DATE, AgentIntent.UPDATE_ORDER_DESTINATION, AgentIntent.CONFIRM_ACTION, AgentIntent.CANCEL_ACTION]:
+            if intent_result.intent in [AgentIntent.CREATE_ORDER, AgentIntent.UPDATE_ORDER, AgentIntent.CONFIRM_ACTION, AgentIntent.CANCEL_ACTION]:
                 session.context.operation_status = "executed"
                 session.context.draft = {}
                 session.context.pending_field = None
@@ -247,7 +271,7 @@ class AgentRouter:
             elif intent_result.intent == AgentIntent.NAVIGATE_TO_COMMAND_CENTER:
                 nav_target = "/voice-command"
                 response_type = "navigation"
-            elif intent_result.intent in [AgentIntent.UPDATE_ORDER_STATUS, AgentIntent.UPDATE_COMMITMENT_DATE, AgentIntent.UPDATE_ORDER_DESTINATION, AgentIntent.CONFIRM_ACTION, AgentIntent.CANCEL_ACTION]:
+            elif intent_result.intent in [AgentIntent.UPDATE_ORDER, AgentIntent.CONFIRM_ACTION, AgentIntent.CANCEL_ACTION]:
                 response_type = "confirmation"
                 
             nav_hint = {"target": nav_target, "reason": response_type} if nav_target else None
@@ -255,6 +279,7 @@ class AgentRouter:
             response = AgentResponse(
                 status="success",
                 message=message,
+                spoken_response=spoken,
                 intent=intent_result.intent,
                 data=data,
                 metadata=metadata,
@@ -285,15 +310,15 @@ class AgentRouter:
             
         except OMSRecordNotFoundError:
             missing_id = intent_result.entities.get('order_id', 'Unknown')
-            message = ResponseFormatter.format_not_found(missing_id)
+            message, spoken = ResponseFormatter.format_not_found(missing_id)
             session.add_message(role="agent", text=message)
             self._session_service.save_session(session)
-            return AgentResponse(status="error", message=message, intent=intent_result.intent, metadata=metadata, session_id=session.id)
+            return AgentResponse(status="error", message=message, spoken_response=spoken, intent=intent_result.intent, metadata=metadata, session_id=session.id)
             
         except UnsupportedIntentError as e:
             session.add_message(role="agent", text=str(e))
             self._session_service.save_session(session)
-            return AgentResponse(status="unsupported", message=str(e), intent=intent_result.intent, metadata=metadata, session_id=session.id)
+            return AgentResponse(status="unsupported", message=str(e), spoken_response=str(e), intent=intent_result.intent, metadata=metadata, session_id=session.id)
             
         except ConfirmationRequiredError as e:
             session.context.operation_status = "pending_confirmation"
@@ -304,6 +329,7 @@ class AgentRouter:
             return AgentResponse(
                 status="confirmation_required",
                 message=str(e),
+                spoken_response=str(e),
                 intent=intent_result.intent,
                 data=e.action_details,
                 metadata=metadata,
@@ -314,19 +340,21 @@ class AgentRouter:
         except AuthorizationError as e:
             session.add_message(role="agent", text=str(e))
             self._session_service.save_session(session)
-            return AgentResponse(status="error", message=str(e), intent=intent_result.intent, metadata=metadata, session_id=session.id)
+            return AgentResponse(status="error", message=str(e), spoken_response=str(e), intent=intent_result.intent, metadata=metadata, session_id=session.id)
             
         except ExecutionError as e:
             logger.error(f"Execution failed: {e}")
             error_msg = str(e)
-            message = ResponseFormatter.format_error("Failed to execute command.")
+            message, spoken = ResponseFormatter.format_error("Failed to execute command.")
             if "Missing required entity" in error_msg:
                 message = f"I understood you want to update the order, but I need more details: {error_msg.split(': ')[-1]} is missing."
+                spoken = message
                 session.add_message(role="agent", text=message)
                 self._session_service.save_session(session)
                 return AgentResponse(
                     status="needs_clarification",
                     message=message,
+                    spoken_response=spoken,
                     intent=intent_result.intent,
                     metadata=metadata,
                     requires_clarification=True,
@@ -335,11 +363,11 @@ class AgentRouter:
                 
             session.add_message(role="agent", text=message)
             self._session_service.save_session(session)
-            return AgentResponse(status="error", message=message, intent=intent_result.intent, metadata=metadata, session_id=session.id)
+            return AgentResponse(status="error", message=message, spoken_response=spoken, intent=intent_result.intent, metadata=metadata, session_id=session.id)
             
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             message = "An unexpected system error occurred."
             session.add_message(role="agent", text=message)
             self._session_service.save_session(session)
-            return AgentResponse(status="error", message=message, intent=intent_result.intent, metadata=metadata, session_id=session.id)
+            return AgentResponse(status="error", message=message, spoken_response=message, intent=intent_result.intent, metadata=metadata, session_id=session.id)

@@ -41,10 +41,7 @@ class HybridAnalyzer(CommandAnalyzer):
         self._registry.register(ListCustomersRule())
         self._registry.register(GetOverviewRule())
         self._registry.register(GetAnalyticsRule())
-        from .rules.order_rules import UpdateOrderStatusRule, UpdateOrderCommitmentDateRule, UpdateOrderDestinationRule
-        self._registry.register(UpdateOrderStatusRule())
-        self._registry.register(UpdateOrderCommitmentDateRule())
-        self._registry.register(UpdateOrderDestinationRule())
+        # Deprecated UPDATE rules removed in favor of Universal Update via LLM
         
         from .rules.navigation_rules import NavigationRule
         self._registry.register(NavigationRule())
@@ -93,11 +90,11 @@ class HybridAnalyzer(CommandAnalyzer):
                 )
         
         # Security: Explicitly unsupported operations blocked before LLM
-        if "delete" in text or "create" in text or "add" in text:
+        if "delete" in text:
             return IntentResult(
                 intent=AgentIntent.UNSUPPORTED,
                 confidence=1.0,
-                explanation="Delete and Create operations are not supported in this phase.",
+                explanation="Delete operations are not supported in this phase.",
                 metadata={"method": "Security Policy"}
             )
             
@@ -116,7 +113,7 @@ class HybridAnalyzer(CommandAnalyzer):
         if result.intent == AgentIntent.UNSUPPORTED and result.confidence == 0.0:
             logger.info("Rule Engine could not resolve command. Falling back to LLM.")
             try:
-                context_dict = session.context.last_result_context.get("query") if (session and session.context.last_result_context) else None
+                context_dict = session.context.model_dump() if session else None
                 llm_intent = self._llm.parse_command(command.text, session_context=context_dict)
                 
                 # Convert LLMStructuredIntent to IntentResult and generate Query Contract

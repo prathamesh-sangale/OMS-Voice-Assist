@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Mic, X, Send, Loader2, Maximize2, MessageSquare } from 'lucide-react';
 import { useAgent } from '../../app/providers/AgentProvider';
 import { useNavigate } from 'react-router-dom';
+import { useVoiceRecording } from '../../hooks/useVoiceRecording';
 
 const GlobalCommandOverlay = () => {
   const { 
@@ -16,6 +17,8 @@ const GlobalCommandOverlay = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
+  const { startRecording, stopRecording, transcript: hookTranscript } = useVoiceRecording();
+
   // Focus input when overlay opens
   useEffect(() => {
     if (isOverlayOpen && inputRef.current) {
@@ -23,20 +26,21 @@ const GlobalCommandOverlay = () => {
     }
   }, [isOverlayOpen]);
 
+  // Auto-start recording for continuous conversational loop like Siri
+  useEffect(() => {
+    if (isOverlayOpen && voiceState === 'Waiting_For_User') {
+      const timer = setTimeout(() => {
+        startRecording();
+      }, 500); // Small delay before opening mic
+      return () => clearTimeout(timer);
+    }
+  }, [voiceState, isOverlayOpen, startRecording]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputText.trim()) {
       dispatchCommand(inputText, 'text');
       setInputText('');
-    }
-  };
-
-  const handleVoice = () => {
-    // Basic mock voice handling for this demo
-    // In production, this would use the SpeechRecognition API from VoiceCommandCenter
-    if (voiceState === 'Ready') {
-      // simulate listening and transcribing for UI feel
-      dispatchCommand("Voice command simulation", 'voice');
     }
   };
 
@@ -83,10 +87,16 @@ const GlobalCommandOverlay = () => {
 
       {/* Content Area */}
       <div className="p-4 flex flex-col gap-3 max-h-60 overflow-y-auto">
-        {voiceState === 'Analyzing' || voiceState === 'Executing' ? (
+        {(voiceState === 'Understanding' || voiceState === 'Executing' || voiceState === 'Transcribing' || voiceState === 'You_Said') ? (
           <div className="flex items-center gap-3 text-primary text-sm p-2">
-            <Loader2 size={16} className="animate-spin" />
-            <span>Agent is working...</span>
+            {voiceState === 'You_Said' ? (
+              <span className="text-text"><span className="text-muted-text font-medium text-xs tracking-wider uppercase">You said:</span> {hookTranscript || inputText}</span>
+            ) : (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>{voiceState === 'Transcribing' ? 'Transcribing audio...' : 'Agent is working...'}</span>
+              </>
+            )}
           </div>
         ) : latestResponse ? (
           <div className="flex flex-col gap-2 text-sm">
@@ -109,7 +119,14 @@ const GlobalCommandOverlay = () => {
       <form onSubmit={handleSubmit} className="p-3 border-t border-border flex items-center gap-2 bg-background">
         <button 
           type="button"
-          onClick={handleVoice}
+          onClick={() => {
+            if (voiceState === 'Listening') {
+              stopRecording();
+            } else if (voiceState !== 'Playing' && voiceState !== 'Executing' && voiceState !== 'Transcribing') {
+              startRecording();
+            }
+          }}
+          disabled={voiceState === 'Playing' || voiceState === 'Executing' || voiceState === 'Transcribing'}
           className={`shrink-0 w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
             voiceState === 'Listening' 
               ? 'bg-critical text-white animate-pulse' 
@@ -127,13 +144,13 @@ const GlobalCommandOverlay = () => {
             className="w-full bg-transparent border-none outline-none text-sm text-text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            disabled={voiceState === 'Analyzing' || voiceState === 'Executing'}
+            disabled={voiceState === 'Understanding' || voiceState === 'Executing' || voiceState === 'Transcribing'}
           />
         </div>
         
         <button 
           type="submit"
-          disabled={!inputText.trim() || voiceState === 'Analyzing' || voiceState === 'Executing'}
+          disabled={!inputText.trim() || voiceState === 'Understanding' || voiceState === 'Executing' || voiceState === 'Transcribing'}
           className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full transition-colors bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Send size={16} className="ml-0.5" />

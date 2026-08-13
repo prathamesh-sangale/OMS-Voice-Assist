@@ -1,4 +1,4 @@
-export type VoiceState = 'Ready' | 'Listening' | 'Transcribing' | 'Analyzing' | 'Executing' | 'Error';
+export type VoiceState = 'Idle' | 'Listening' | 'Transcribing' | 'You_Said' | 'Understanding' | 'Executing' | 'Completed' | 'Playing' | 'Waiting_For_User' | 'Error';
 
 export interface SessionMessage {
   id: string;
@@ -28,6 +28,7 @@ export interface ConversationSession {
 export interface AgentResponse {
   status: string;
   message: string;
+  spoken_response?: string;
   intent?: string;
   data?: any;
   metadata?: any;

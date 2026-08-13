@@ -1,5 +1,5 @@
 import { OrderCard } from './OrderCard';
-import { CheckCircle2, Filter, Download, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Filter, ChevronRight } from 'lucide-react';
 
 interface OrderResultRendererProps {
   data: any;

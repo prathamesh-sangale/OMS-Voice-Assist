@@ -29,7 +29,7 @@
     {
       "id": "073c0ca6-b893-4e00-bde1-0ed56dc828d1",
       "order_number": "OR601",
-      "client_name": "Vantage Foods Pvt Ltd",
+      "client_name": "Acme Corp",
       "product_type": "Dry Container",
       "business_model": "Sale",
       "order_type": "New",
@@ -37,7 +37,7 @@
       "sales_exec": "Gargi",
       "commitment_date": "2026-08-19",
       "current_stage": "1.1",
-      "status": "Completed",
+      "status": "Notjing",
       "config_id": null,
       "meta": {
         "pc_Dry Container_sale_qty": "3",
@@ -254,7 +254,8 @@
       "submitted_by": "sales@example.test",
       "quotation_no": "QAS17893",
       "po_number": "PO/DEL/23/2655",
-      "is_test": false
+      "is_test": false,
+      "destination": "New Destination"
     },
     {
       "id": "a277f727-6b78-474a-b9c7-1bec7e30e098",
@@ -453,7 +454,8 @@
       "submitted_by": "sales4@example.test",
       "quotation_no": "QAS17529",
       "po_number": "PO/CHN/23/4614",
-      "is_test": false
+      "is_test": false,
+      "container_type": "Dry Container"
     },
     {
       "id": "eeb90f65-38e3-4a08-a9b5-b555628e1b3a",
@@ -466,7 +468,7 @@
       "sales_exec": "Gargi",
       "commitment_date": "2026-08-11",
       "current_stage": "1.1B",
-      "status": "needs_revision",
+      "status": "Approved",
       "config_id": null,
       "meta": {
         "pc_Reefer Container_rental_qty": "3",
@@ -710,7 +712,8 @@
       "submitted_by": "sales@example.test",
       "quotation_no": "QAS17260",
       "po_number": "PO/DEL/27/7908",
-      "is_test": false
+      "is_test": false,
+      "destination": "New York"
     },
     {
       "id": "282b3a46-5615-467d-97b5-81b5b95f4d71",
@@ -998,7 +1001,7 @@
       "product_type": "Reefer Container",
       "business_model": "Lease",
       "order_type": "New",
-      "quantity": 3,
+      "quantity": "10",
       "sales_exec": "Pushpalata Shetty",
       "commitment_date": "2026-08-25",
       "current_stage": "7.1",
@@ -2215,8 +2218,8 @@
       "id": "884a3ac1-092a-401b-8fe0-f7345bbc7060",
       "order_number": "OR610",
       "client_name": "Silverpine Retail Pvt Ltd",
-      "product_type": "Dry Container",
-      "business_model": "Lease",
+      "product_type": "dry container",
+      "business_model": "Rental",
       "order_type": "New",
       "quantity": 4,
       "sales_exec": "Gargi",
@@ -2494,7 +2497,7 @@
     {
       "id": "4343009a-e977-46a9-9c95-3ff3b0f82251",
       "order_number": "OR611",
-      "client_name": "Orchid Frozen Foods",
+      "client_name": "Apex2",
       "product_type": "Reefer Container",
       "business_model": "Lease",
       "order_type": "New",
@@ -3473,7 +3476,7 @@
       "sales_exec": "Laveena",
       "commitment_date": "2026-08-16",
       "current_stage": "10",
-      "status": "completed",
+      "status": "Approved",
       "config_id": null,
       "meta": {
         "pc_Reefer Container_rental_qty": "3",
@@ -4381,7 +4384,7 @@
       "sales_exec": "Laveena",
       "commitment_date": "2026-08-10",
       "current_stage": "10",
-      "status": "completed",
+      "status": "Cancelled",
       "config_id": null,
       "meta": {
         "pc_Reefer Container_sale_qty": "1",

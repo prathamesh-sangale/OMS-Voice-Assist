@@ -1,3 +1,4 @@
+from typing import Optional
 from .provider import LLMProvider
 from .schemas import LLMStructuredIntent
 from ..models.intent import AgentIntent

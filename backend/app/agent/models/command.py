@@ -19,6 +19,7 @@ class IntentResult(BaseModel):
 class AgentResponse(BaseModel):
     status: str = Field(description="success, needs_clarification, unsupported, error")
     message: str = Field(description="Human readable response text")
+    spoken_response: Optional[str] = Field(default=None, description="Concise conversational text for TTS")
     intent: Optional[AgentIntent] = Field(default=None)
     data: Optional[Any] = Field(default=None, description="Payload returned by OMS")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Audit log context")

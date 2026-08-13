@@ -24,7 +24,7 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [currentSession, setCurrentSession] = useState<ConversationSession | null>(null);
   const [latestResponse, setLatestResponse] = useState<AgentResponse | null>(null);
-  const [voiceState, setVoiceState] = useState<VoiceState>('Ready');
+  const [voiceState, setVoiceState] = useState<VoiceState>('Idle');
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   
   const navigate = useNavigate();
@@ -51,7 +51,8 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
       setCurrentSession({ id: 'temp', title: 'New Conversation', updated_at: '', messages: [fakeMsg], context: {} });
     }
     try {
-      setVoiceState('Analyzing');
+      console.log('[Voice] Agent dispatch started...');
+      setVoiceState('Understanding');
       if (!isOverlayOpen) setIsOverlayOpen(true);
       
       const response = await fetchClient('/api/agent/command', {
@@ -63,6 +64,8 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
         })
       }) as AgentResponse;
       
+      console.log('[Voice] Agent response received.');
+      setVoiceState('Executing');
       setLatestResponse(response);
       
       if (response.session_id) {
@@ -70,17 +73,55 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
         await fetchSessionDetails(response.session_id);
       }
       
-      setVoiceState('Ready');
-      
       // Auto-navigation based on backend hint
       if (response.navigation?.target) {
         navigate(response.navigation.target);
       }
       
+      // Play TTS for all responses
+      if (response.spoken_response) {
+        setVoiceState('Playing');
+        try {
+          const ttsRes = await fetch('http://localhost:8000/api/voice/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: response.spoken_response })
+          });
+          
+          if (ttsRes.ok) {
+            const audioBlob = await ttsRes.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            await new Promise((resolve) => {
+              audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                resolve(null);
+              };
+              audio.play().catch(e => {
+                console.error("Audio playback blocked", e);
+                resolve(null);
+              });
+            });
+          }
+        } catch (e) {
+          console.error("Failed to play TTS", e);
+        }
+      }
+      
+      setVoiceState('Completed');
+      setTimeout(() => {
+        if (response.requires_clarification) {
+          setVoiceState('Waiting_For_User');
+        } else {
+          setVoiceState('Idle');
+        }
+      }, 1000);
+      
     } catch (error) {
       console.error("Command execution failed:", error);
       setVoiceState('Error');
-      setTimeout(() => setVoiceState('Ready'), 3000);
+      setTimeout(() => setVoiceState('Idle'), 3000);
     }
   };
 

@@ -3,7 +3,7 @@ from datetime import datetime
 
 from .oms_service import OMSService
 from .audit import AuditLogger
-from ..contracts.commands import UpdateOrderStatusCommand, UpdateCommitmentDateCommand, UpdateOrderDestinationCommand, CreateOrderCommand
+from ..contracts.commands import UpdateOrderCommand, UpdateOrderStatusCommand, UpdateCommitmentDateCommand, UpdateOrderDestinationCommand, CreateOrderCommand
 from ..schemas.oms import OrderSchema
 from ..exceptions import OMSRecordNotFoundError
 
@@ -113,6 +113,39 @@ class WriteService:
                     target=oid,
                     old_value=None,
                     new_value=new_val,
+                    status="FAILED",
+                    reason=str(e)
+                )
+                results["failed"].append({"order_id": oid, "reason": str(e)})
+        return results
+
+    def update_order(self, command: UpdateOrderCommand) -> Dict[str, Any]:
+        results = {"success": [], "failed": []}
+        updates = command.updates
+
+        for oid in command.order_ids:
+            try:
+                # Assuming old values are tracked for all fields updated, we just say "Multiple Fields" for simplicity
+                old_order = self._oms.retrieve_order_details(oid)
+                
+                updated_order = self._oms._repository.update_order_generic(oid, updates)
+                
+                self._audit.log_event(
+                    actor=self._actor,
+                    intent="UPDATE_ORDER",
+                    target=oid,
+                    old_value="Multiple Fields",
+                    new_value=str(updates),
+                    status="SUCCESS"
+                )
+                results["success"].append(updated_order)
+            except Exception as e:
+                self._audit.log_event(
+                    actor=self._actor,
+                    intent="UPDATE_ORDER",
+                    target=oid,
+                    old_value=None,
+                    new_value=str(updates),
                     status="FAILED",
                     reason=str(e)
                 )

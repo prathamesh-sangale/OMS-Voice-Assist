@@ -23,26 +23,36 @@ class SessionService:
     def save_session(self, session: ConversationSession):
         self._repo.save_session(session)
 
-    def process_pending_answer(self, session: ConversationSession, user_input: str) -> bool:
+    def process_pending_answer(self, session: ConversationSession, user_input: str) -> Optional[str]:
         """
         If the session is waiting for a specific field, directly assign the user input to it
-        and clear the pending state. Returns True if an answer was processed.
+        and clear the pending state. Returns a status string: 'aborted', 'processed', or None.
         """
         if session.context.operation_status == "collecting" and session.context.pending_field:
             field = session.context.pending_field
             
-            clean_input = user_input.strip().lower()
+            import string
+            clean_input = user_input.strip().lower().translate(str.maketrans('', '', string.punctuation))
+            
+            # Explicit abort
             if clean_input in ["cancel", "abort", "stop"]:
                 session.context.pending_field = None
                 session.context.operation_status = "idle"
                 session.context.draft = {}
                 self.save_session(session)
-                return True
+                return "aborted"
                 
-            # Direct assignment. A more advanced version might parse the type (e.g. integer for quantity)
-            # but string is safe for the UI draft. DraftManager will validate it.
+            # Implicit abort (User is starting a completely new command)
+            first_word = clean_input.split()[0] if clean_input else ""
+            if first_word in ["list", "show", "create", "update", "change", "find", "get", "tell", "search"]:
+                session.context.pending_field = None
+                session.context.operation_status = "idle"
+                session.context.draft = {}
+                self.save_session(session)
+                return None  # Let the Router analyze this as a new command
+                
             session.context.draft[field] = user_input.strip()
             session.context.pending_field = None
             self.save_session(session)
-            return True
-        return False
+            return "processed"
+        return None
