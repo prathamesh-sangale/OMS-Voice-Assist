@@ -68,7 +68,10 @@ The Agent will be given strict tools mapped 1:1 to these `OMSService` methods:
 
 ### Write Operations
 The Agent may only trigger write operations via strict command objects. Current supported write commands:
-- `UpdateOrderCommand(order_id, status)`
-- `UpdateCommitmentDateCommand(order_id, date)`
+- `UpdateOrderCommand(order_ids: List[str], updates: Dict[str, Any])` (Generalized update for any attribute)
+- `CreateOrderCommand(client_name, product_type, quantity, loading_city, delivery_city, commitment_date)`
+- `UpdateOrderStatusCommand(order_ids, new_status)`
+- `UpdateCommitmentDateCommand(order_ids, new_commitment_date)`
+- `UpdateOrderDestinationCommand(order_ids, new_destination)`
 
 **Strict Boundaries:** The Agent CANNOT write arbitrarily, parse raw files, or execute SQL/pandas functions against the OMS data. All writes must go through the `WriteService` confirmation loop.
