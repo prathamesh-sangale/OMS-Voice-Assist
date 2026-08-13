@@ -1,6 +1,6 @@
-# OMS API Read Interface
+# OMS API Interface
 
-All endpoints are completely read-only. Standard responses and paginations strictly apply.
+While most endpoints are read-only for analytics, specific write operations are exposed for traditional UI workflows. Standard responses and paginations strictly apply.
 
 ## Pagination Standard
 All collection endpoints return the following standard:
@@ -36,6 +36,11 @@ All collection endpoints return the following standard:
 ## GET `/api/orders/{order_id}`
 **Purpose**: Retrieve a single order by ID.
 **Errors**: 404 `NOT_FOUND` if order does not exist.
+
+## PATCH `/api/orders/{order_id}`
+**Purpose**: Manually update fields on a single order bypassing the Voice Agent execution flow.
+**Body**: A partial `Order` JSON object containing only the fields to be updated.
+**Returns**: The fully updated `Order` object.
 
 ## GET `/api/orders/{order_id}/tasks`
 **Purpose**: Retrieve all workflow tasks specifically tied to an order. Returns a flat list, not paginated.
