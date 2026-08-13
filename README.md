@@ -8,8 +8,9 @@ The Executive OMS Voice Agent is designed to streamline complex supply chain and
 
 ## Key Features
 
-- **Conversational Context Management**: The agent understands follow-up queries, allowing users to naturally refine filters or correct previous inputs (e.g., "show reefer orders", then "actually, make that quantity 3").
+- **Conversational Context Management**: The agent understands follow-up queries, allowing users to naturally refine filters or correct previous inputs (e.g., "show reefer orders", then "actually, make that quantity 3"). It features robust state tracking to remember active entities across multiple interactions.
 - **Voice & Text Interoperability**: Seamlessly switch between voice commands and text chat, with real-time audio transcription and text-to-speech feedback.
+- **Hands-Free Voice Activity Detection (VAD)**: The microphone supports automated Voice Activity Detection, enabling continuous, hands-free conversational loops without needing push-to-talk.
 - **Strict Execution Safety**: Write operations undergo rigorous draft validation against business rules. Actions are staged for confirmation, ensuring no unintended modifications occur to the repository.
 - **Hybrid Intent Routing**: Fast, deterministic rules handle standard navigational and query intents, while an LLM fallback gracefully handles complex or ambiguous conversational requests.
 
