@@ -40,3 +40,8 @@ def get_order(order_id: str, service: OMSService = Depends(get_oms_service)):
 def get_order_tasks(order_id: str, service: OMSService = Depends(get_oms_service)):
     """Retrieve tasks associated with a specific order."""
     return service.get_order_tasks(order_id)
+
+@router.patch("/{order_id}", response_model=OrderSchema)
+def update_order(order_id: str, updates: dict, service: OMSService = Depends(get_oms_service)):
+    """Update fields on a specific order."""
+    return service.update_order(order_id, updates)

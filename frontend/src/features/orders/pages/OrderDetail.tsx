@@ -5,6 +5,8 @@ import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { ordersApi } from '../../../services/api/orders';
 import type { Order, OrderTask } from '../../../services/api/types';
+import { useAgent } from '../../../app/providers/AgentProvider';
+import { EditOrderModal } from '../components/EditOrderModal';
 
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +16,9 @@ const OrderDetail = () => {
   const [tasks, setTasks] = useState<OrderTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  
+  const { dispatchCommand } = useAgent();
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -35,6 +40,15 @@ const OrderDetail = () => {
     };
     fetchOrderDetails();
   }, [id]);
+
+  const handleSaveOrder = async (orderId: string, updates: Partial<Order>) => {
+    try {
+      const updatedOrder = await ordersApi.updateOrder(orderId, updates);
+      setOrder(updatedOrder);
+    } catch (err) {
+      throw err;
+    }
+  };
 
   const getStatusColor = (status?: string) => {
     if (!status) return 'neutral';
@@ -78,9 +92,18 @@ const OrderDetail = () => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline">Print</Button>
-          <Button variant="primary">Edit Order</Button>
+          <Button variant="primary" onClick={() => setIsEditModalOpen(true)}>Edit Order</Button>
         </div>
       </div>
+
+      {isEditModalOpen && order && (
+        <EditOrderModal
+          order={order}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={handleSaveOrder}
+        />
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Order Information */}

@@ -33,6 +33,10 @@ class OMSService:
         """Fetch a specific order by ID."""
         return self._repository.get_order(order_id)
         
+    def update_order(self, order_id: str, updates: dict) -> OrderSchema:
+        """Update fields on a specific order."""
+        return self._repository.update_order(order_id, updates)
+        
     def get_order_tasks(self, order_id: str) -> List[OrderTaskSchema]:
         """Fetch workflow tasks for a specific order."""
         order = self._repository.get_order(order_id)

@@ -26,6 +26,11 @@ class BaseOMSRepository(ABC):
         pass
         
     @abstractmethod
+    def update_order(self, order_id: str, updates: dict) -> OrderSchema:
+        """Updates an existing order with the provided fields."""
+        pass
+        
+    @abstractmethod
     def get_tasks_for_order(self, order_id: str) -> List[OrderTaskSchema]:
         """Returns a list of tasks associated with a specific order ID."""
         pass

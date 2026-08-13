@@ -147,11 +147,21 @@ class JSONOMSRepository(BaseOMSRepository):
 
         return result
 
-    def get_order(self, order_id: str) -> Optional[OrderSchema]:
-        for order in self._orders:
-            if order.id == order_id or order.order_number == order_id:
-                return order
-        raise OMSRecordNotFoundError(f"Order not found with ID: {order_id}")
+    def get_order(self, order_id: str) -> OrderSchema:
+        with self._lock:
+            for order in self._orders:
+                if order.order_number == order_id or order.id == order_id:
+                    return order
+            raise OMSRecordNotFoundError(f"Order '{order_id}' not found.")
+            
+    def update_order(self, order_id: str, updates: dict) -> OrderSchema:
+        with self._lock:
+            order = self.get_order(order_id)
+            for k, v in updates.items():
+                if hasattr(order, k):
+                    setattr(order, k, v)
+            self._save_data()
+            return order
 
     def get_tasks_for_order(self, order_id: str) -> List[OrderTaskSchema]:
         return [task for task in self._tasks if task.order_id == order_id]

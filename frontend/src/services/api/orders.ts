@@ -40,5 +40,15 @@ export const ordersApi = {
    */
   async getOrderTasks(orderId: string): Promise<OrderTask[]> {
     return fetchClient<OrderTask[]>(`/api/orders/${orderId}/tasks`);
-  }
+  },
+
+  /**
+   * Update an order with the provided fields.
+   */
+  async updateOrder(orderId: string, updates: Partial<Order>): Promise<Order> {
+    return fetchClient<Order>(`/api/orders/${orderId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  },
 };
