@@ -111,11 +111,8 @@ export const AgentProvider = ({ children }: { children: ReactNode }) => {
       
       setVoiceState('Completed');
       setTimeout(() => {
-        if (response.requires_clarification) {
-          setVoiceState('Waiting_For_User');
-        } else {
-          setVoiceState('Idle');
-        }
+        // Continuous Voice Loop: Always wait for user until they manually close the chat or stop
+        setVoiceState('Waiting_For_User');
       }, 1000);
       
     } catch (error) {

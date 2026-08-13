@@ -24,6 +24,7 @@ const VoiceCommandCenter = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch all sessions on mount
   useEffect(() => {
@@ -50,11 +51,18 @@ const VoiceCommandCenter = () => {
   // Auto-start recording for continuous conversational loop like Siri
   // Only if GlobalCommandOverlay isn't doing it
   useEffect(() => {
-    if (!isOverlayOpen && voiceState === 'Waiting_For_User') {
-      const timer = setTimeout(() => {
-        startRecording();
-      }, 500);
-      return () => clearTimeout(timer);
+    if (voiceState === 'Waiting_For_User' || voiceState === 'Idle') {
+      // Auto focus text input for seamless text conversation
+      setTimeout(() => {
+        textInputRef.current?.focus();
+      }, 100);
+      
+      if (!isOverlayOpen && voiceState === 'Waiting_For_User') {
+        const timer = setTimeout(() => {
+          startRecording();
+        }, 500);
+        return () => clearTimeout(timer);
+      }
     }
   }, [voiceState, isOverlayOpen, startRecording]);
 
@@ -110,12 +118,18 @@ const VoiceCommandCenter = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputText.trim()) {
-      dispatchCommand(inputText, 'text');
-      setInputText('');
+    if (!inputText.trim()) return;
+    
+    let textToSend = inputText;
+    if (currentSession?.context?.pending_field === 'commitment_date' && textToSend.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const parts = textToSend.split("-");
+      textToSend = `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
+    
+    await dispatchCommand(textToSend, 'text');
+    setInputText('');
   };
 
   return (
@@ -191,22 +205,49 @@ const VoiceCommandCenter = () => {
                         </div>
                       )}
                       
-                      {/* Confirmation UI (we'll show it for the last message if status is pending_confirmation) */}
-                      {currentSession?.context?.operation_status === 'pending_confirmation' && idx === currentSession.messages.length - 1 && (
-                         <div className="mt-4 p-4 border border-accent rounded-lg bg-accent/5 space-y-2">
-                           <div className="text-xs font-semibold text-accent uppercase tracking-wider">Pending Action</div>
-                           <div className="text-sm">
-                             <span className="text-muted-text">Target: </span> 
-                             <span className="font-medium text-text">
-                               {Array.isArray(currentSession.context.target_orders?.order_ids) 
-                                 ? `${currentSession.context.target_orders?.order_ids.length} orders` 
-                                 : '1 order'}
-                             </span>
+                      {/* Live Draft / Confirmation UI */}
+                      {(currentSession?.context?.operation_status === 'pending_confirmation' || currentSession?.context?.operation_status === 'collecting') && idx === currentSession.messages.length - 1 && (
+                         <div className="mt-4 p-4 border border-accent rounded-lg bg-accent/5 space-y-3">
+                           <div className="flex items-center gap-2 mb-2">
+                             <div className="text-xs font-bold text-accent uppercase tracking-wider">
+                               {currentSession.context.operation_status === 'collecting' ? 'Live Draft Preview' : 'Confirm Operation'}
+                             </div>
+                             <div className="px-2 py-0.5 bg-accent/20 text-accent text-[10px] rounded-full font-medium">
+                               {currentSession.context.intent}
+                             </div>
                            </div>
-                           <div className="flex gap-2 pt-2">
-                             <button onClick={() => dispatchCommand('Cancel', 'text')} className="px-3 py-1.5 text-sm bg-surface text-text hover:bg-surface-hover rounded-md border border-border">Cancel</button>
-                             <button onClick={() => dispatchCommand('Confirm', 'text')} className="px-3 py-1.5 text-sm bg-accent text-white hover:bg-accent/90 rounded-md">Confirm Update</button>
+                           
+                           {/* Target Orders */}
+                           <div className="text-sm bg-surface p-3 rounded-md border border-border/50 shadow-sm">
+                             <div className="text-muted-text text-xs mb-1">Target</div> 
+                             <div className="font-medium text-text">
+                               {Array.isArray(currentSession.context.target_orders?.order_ids) && currentSession.context.target_orders.order_ids.length > 0
+                                 ? currentSession.context.target_orders.order_ids.join(', ')
+                                 : 'New Order'}
+                             </div>
                            </div>
+
+                           {/* Updates/Payload */}
+                           {currentSession.context.draft && (
+                             <div className="text-sm bg-surface p-3 rounded-md border border-border/50 shadow-sm">
+                               <div className="text-muted-text text-xs mb-2">Collected Data</div>
+                               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                 {Object.entries(currentSession.context.draft.updates || currentSession.context.draft).filter(([k]) => k !== 'order_ids').map(([key, value]) => (
+                                   <div key={key} className="flex flex-col">
+                                     <span className="text-[11px] text-muted-text uppercase tracking-wider">{key.replace(/_/g, ' ')}</span>
+                                     <span className="font-medium text-text text-sm truncate" title={String(value)}>{String(value) || '-'}</span>
+                                   </div>
+                                 ))}
+                               </div>
+                             </div>
+                           )}
+
+                           {currentSession.context.operation_status === 'pending_confirmation' && (
+                             <div className="flex gap-2 pt-2">
+                               <button onClick={() => dispatchCommand('Cancel', 'text')} className="flex-1 py-2 text-sm bg-surface text-text hover:bg-surface-hover rounded-md border border-border font-medium transition-colors">Cancel</button>
+                               <button onClick={() => dispatchCommand('Confirm', 'text')} className="flex-1 py-2 text-sm bg-accent text-white hover:bg-accent/90 rounded-md shadow-sm font-medium transition-colors">Confirm Update</button>
+                             </div>
+                           )}
                          </div>
                       )}
                     </div>
@@ -301,14 +342,29 @@ const VoiceCommandCenter = () => {
             </button>
 
             <div className="flex-1 bg-surface border border-border rounded-full px-4 py-3 flex items-center shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
-              <input 
-                type="text" 
-                placeholder="Ask the OMS..." 
-                className="w-full bg-transparent border-none outline-none text-base text-text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                disabled={voiceState === 'Understanding' || voiceState === 'Executing' || voiceState === 'Transcribing'}
-              />
+              {currentSession?.context?.pending_field === 'commitment_date' ? (
+                <input 
+                  ref={textInputRef}
+                  type="date"
+                  min={new Date().toISOString().split("T")[0]}
+                  className="w-full bg-transparent border-none outline-none text-base text-text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  disabled={voiceState === 'Understanding' || voiceState === 'Executing' || voiceState === 'Transcribing'}
+                  autoFocus
+                />
+              ) : (
+                <input 
+                  ref={textInputRef}
+                  type="text" 
+                  placeholder="Ask the OMS..." 
+                  className="w-full bg-transparent border-none outline-none text-base text-text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  disabled={voiceState === 'Understanding' || voiceState === 'Executing' || voiceState === 'Transcribing'}
+                  autoFocus
+                />
+              )}
             </div>
             
             <button 

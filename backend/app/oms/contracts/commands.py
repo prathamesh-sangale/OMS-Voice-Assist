@@ -20,8 +20,10 @@ class UpdateOrderDestinationCommand(BaseModel):
 
 class CreateOrderCommand(BaseModel):
     client_name: str
+    order_type: str
     product_type: str
     quantity: str
     loading_city: str
     delivery_city: str
     commitment_date: str
+    business_model: str

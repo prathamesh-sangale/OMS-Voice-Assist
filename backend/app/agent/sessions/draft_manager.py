@@ -10,11 +10,13 @@ class DraftManager:
     REQUIRED_FIELDS = {
         AgentIntent.CREATE_ORDER.value: [
             "client_name",
+            "order_type",
             "product_type",
             "quantity",
             "loading_city",
             "delivery_city",
-            "commitment_date"
+            "commitment_date",
+            "business_model"
         ],
         AgentIntent.UPDATE_ORDER.value: [
             "updates"
@@ -23,13 +25,29 @@ class DraftManager:
     
     FIELD_PROMPTS = {
         "client_name": "What is the name of the client?",
+        "order_type": "What is the order type (e.g., rental, sale, lease)?",
         "product_type": "What container type is needed (e.g., Dry, Reefer)?",
         "quantity": "What is the quantity?",
         "loading_city": "What is the pickup city?",
         "delivery_city": "What is the destination city?",
         "commitment_date": "What is the commitment date for this order?",
+        "business_model": "What is the business model?",
         "updates": "What would you like to update on this order?"
     }
+
+    @classmethod
+    def _validate_commitment_date(cls, val: Any) -> Tuple[bool, str]:
+        import re
+        from datetime import datetime
+        if not re.match(r"^\d{2}-\d{2}-\d{4}$", str(val)):
+            return False, "That doesn't seem like a valid date format. Please specify the commitment date again."
+        try:
+            date_obj = datetime.strptime(str(val), "%d-%m-%Y").date()
+            if date_obj < datetime.now().date():
+                return False, "The commitment date cannot be in the past. Please provide today's date or a future date."
+        except ValueError:
+            return False, "That doesn't seem like a valid date. What is the commitment date?"
+        return True, ""
 
     @classmethod
     def evaluate_draft(cls, intent: str, draft: Dict[str, Any]) -> Tuple[bool, Optional[str], Optional[str]]:
@@ -56,5 +74,20 @@ class DraftManager:
                     if str(val["status"]).lower() not in cls.ALLOWED_STATUSES:
                         draft[field] = None
                         return False, field, "Please provide a valid status, or say cancel."
+                        
+                if "commitment_date" in val:
+                    is_valid, err_msg = cls._validate_commitment_date(val["commitment_date"])
+                    if not is_valid:
+                        # Clear it from the updates dict so the user is reprompted
+                        del draft[field]["commitment_date"]
+                        if not draft[field]:
+                            draft[field] = None
+                        return False, field, err_msg
+                        
+            if field == "commitment_date":
+                is_valid, err_msg = cls._validate_commitment_date(val)
+                if not is_valid:
+                    draft[field] = None
+                    return False, field, err_msg
 
         return True, None, None

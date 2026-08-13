@@ -23,7 +23,9 @@ class GroqLLMProvider(LLMProvider):
         
     def parse_command(self, text: str, session_context: dict = None) -> LLMStructuredIntent:
         from .prompts import AGENT_SYSTEM_PROMPT
+        from datetime import datetime
         system_prompt = AGENT_SYSTEM_PROMPT
+        system_prompt += f"\nToday's Date is: {datetime.now().strftime('%Y-%m-%d')}\n"
         if session_context:
             system_prompt += f"\nActive Session Context: {json.dumps(session_context)}\n"
         
