@@ -41,3 +41,16 @@ env/
 # Project specific
 stitch_oms_executive_assistant/
 stitch_oms_executive_assistant.zip
+
+# Runtime Data and Logs
+backend/app/data/sessions.json
+backend/app/data/crystal-oms-demo.json
+backend/app/data/crystal-oms-demo.json.bak
+backend/app/data/audit.log
+sessions.json
+
+# Scratch and Test Scripts
+backend/scratch.py
+backend/test_api.py
+backend/test_groq_llm.py
+backend/test_updates.py
