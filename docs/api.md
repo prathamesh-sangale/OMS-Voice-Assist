@@ -32,6 +32,8 @@ All collection endpoints return the following standard:
 - `business_model`: Exact match.
 - `product`: Matches product type string.
 - `sales_exec`: Exact match.
+- `sort_by`: Field to sort by (e.g., `created_at`, `quantity`). Defaults to `created_at`.
+- `sort_order`: Sort direction (`asc` or `desc`). Defaults to `desc`.
 
 ## GET `/api/orders/{order_id}`
 **Purpose**: Retrieve a single order by ID.

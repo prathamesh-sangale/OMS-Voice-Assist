@@ -51,12 +51,7 @@ class SessionService:
                 self.save_session(session)
                 return None  # Let the Router analyze this as a new command
                 
-            if field == "updates":
-                # Let the LLM handle parsing the value into a dictionary
-                return None
-                
-            session.context.draft[field] = user_input.strip()
-            session.context.pending_field = None
-            self.save_session(session)
-            return "processed"
+            # Allow the Router to pass the input to the LLM for entity extraction and formatting
+            return None
+            
         return None

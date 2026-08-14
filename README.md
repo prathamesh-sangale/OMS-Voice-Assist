@@ -12,6 +12,7 @@ The Executive OMS Voice Agent is designed to streamline complex supply chain and
 - **Voice & Text Interoperability**: Seamlessly switch between voice commands and text chat, with real-time audio transcription and text-to-speech feedback.
 - **Hands-Free Voice Activity Detection (VAD)**: The microphone supports automated Voice Activity Detection, enabling continuous, hands-free conversational loops without needing push-to-talk.
 - **Traditional UI Fallbacks**: Bypasses the conversational agent for quick, targeted edits via standard Web UI Modals to provide flexibility between AI interactions and traditional workflows.
+- **Native Date Interpretation**: Automatically parses and converts conversational NLP dates (e.g. "next sunday", "in two weeks") into strict valid DD-MM-YYYY formats safely.
 - **Strict Execution Safety**: Write operations undergo rigorous draft validation against business rules. Actions are staged for confirmation, ensuring no unintended modifications occur to the repository.
 - **Hybrid Intent Routing**: Fast, deterministic rules handle standard navigational and query intents, while an LLM fallback gracefully handles complex or ambiguous conversational requests.
 

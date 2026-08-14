@@ -26,8 +26,11 @@ class GroqLLMProvider(LLMProvider):
         from datetime import datetime
         system_prompt = AGENT_SYSTEM_PROMPT
         system_prompt += f"\nToday's Date is: {datetime.now().strftime('%Y-%m-%d')}\n"
-        if session_context:
+        if session_context:            
+            from datetime import datetime
+            current_date = datetime.now().strftime('%d %B %Y')
             system_prompt += f"\nActive Session Context: {json.dumps(session_context)}\n"
+            system_prompt += f"\nCurrent Date: {current_date}\n"
         
         try:
             response = self.client.chat.completions.create(
@@ -41,6 +44,12 @@ class GroqLLMProvider(LLMProvider):
             )
             
             result_text = response.choices[0].message.content
+            if '```json' in result_text:
+                result_text = result_text.split('```json')[1].split('```')[0]
+            elif '```' in result_text:
+                result_text = result_text.split('```')[1]
+                
+            print(f"RAW LLM RESPONSE: {result_text}")
             data = json.loads(result_text)
             
             intent_str = data.get("intent", AgentIntent.UNSUPPORTED.value)

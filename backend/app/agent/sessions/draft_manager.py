@@ -36,18 +36,22 @@ class DraftManager:
     }
 
     @classmethod
-    def _validate_commitment_date(cls, val: Any) -> Tuple[bool, str]:
-        import re
+    def _validate_commitment_date(cls, val: Any) -> Tuple[bool, str, Any]:
         from datetime import datetime
-        if not re.match(r"^\d{2}-\d{2}-\d{4}$", str(val)):
-            return False, "That doesn't seem like a valid date format. Please specify the commitment date again."
-        try:
-            date_obj = datetime.strptime(str(val), "%d-%m-%Y").date()
-            if date_obj < datetime.now().date():
-                return False, "The commitment date cannot be in the past. Please provide today's date or a future date."
-        except ValueError:
-            return False, "That doesn't seem like a valid date. What is the commitment date?"
-        return True, ""
+        import dateparser
+        
+        dt = dateparser.parse(
+            str(val).lower().replace('next ', ''), 
+            settings={'PREFER_DATES_FROM': 'future'}
+        )
+        if not dt:
+            return False, "That doesn't seem like a valid date format. Please specify the commitment date again.", val
+            
+        if dt.date() < datetime.now().date():
+            return False, "The commitment date cannot be in the past. Please provide today's date or a future date.", val
+            
+        formatted_date = dt.strftime("%d-%m-%Y")
+        return True, "", formatted_date
 
     @classmethod
     def evaluate_draft(cls, intent: str, draft: Dict[str, Any]) -> Tuple[bool, Optional[str], Optional[str]]:
@@ -76,18 +80,22 @@ class DraftManager:
                         return False, field, "Please provide a valid status, or say cancel."
                         
                 if "commitment_date" in val:
-                    is_valid, err_msg = cls._validate_commitment_date(val["commitment_date"])
+                    is_valid, err_msg, parsed_date = cls._validate_commitment_date(val["commitment_date"])
                     if not is_valid:
                         # Clear it from the updates dict so the user is reprompted
                         del draft[field]["commitment_date"]
                         if not draft[field]:
                             draft[field] = None
                         return False, field, err_msg
+                    else:
+                        draft[field]["commitment_date"] = parsed_date
                         
             if field == "commitment_date":
-                is_valid, err_msg = cls._validate_commitment_date(val)
+                is_valid, err_msg, parsed_date = cls._validate_commitment_date(val)
                 if not is_valid:
                     draft[field] = None
                     return False, field, err_msg
+                else:
+                    draft[field] = parsed_date
 
         return True, None, None

@@ -82,9 +82,21 @@ class AgentRouter:
                     command.text = f"!confirm {session.context.confirmation_id}"
                 elif text_clean in ["cancel", "no", "abort", "stop"]:
                     command.text = f"!cancel {session.context.confirmation_id}"
-
-            # 3. Analyze Command Normally
+            
             intent_result = self._analyzer.analyze(command, session=session)
+
+            # During field collection, force the intent to remain the original intent 
+            # unless the user explicitly cancels or confirms.
+            if session.context.operation_status == "collecting":
+                if intent_result.intent not in [AgentIntent.CANCEL_ACTION, AgentIntent.CONFIRM_ACTION]:
+                    intent_result.intent = AgentIntent(session.context.intent)
+                    
+                    # Smart Fallback: If LLM failed to extract the pending field, 
+                    # inject the raw text directly 
+                    pf = session.context.pending_field
+                    if pf and pf not in intent_result.entities:
+                        if pf != "updates":
+                            intent_result.entities[pf] = command.text.strip()
             
             # Global normalization for order_id
             if "order_id" in intent_result.entities:

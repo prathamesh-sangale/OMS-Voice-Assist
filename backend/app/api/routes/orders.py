@@ -15,6 +15,8 @@ def list_orders(
     business_model: Optional[str] = Query(None, description="Filter by business model"),
     product: Optional[str] = Query(None, description="Filter by product"),
     sales_exec: Optional[str] = Query(None, description="Filter by sales executive"),
+    sort_by: Optional[str] = Query("created_at", description="Field to sort by"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     service: OMSService = Depends(get_oms_service)
@@ -26,6 +28,8 @@ def list_orders(
         business_model=business_model,
         product=product,
         sales_exec=sales_exec,
+        sort_by=sort_by,
+        sort_order=sort_order,
         page=page,
         page_size=page_size
     )
